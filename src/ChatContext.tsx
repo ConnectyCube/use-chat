@@ -7,7 +7,13 @@ import {
   FileAttachment,
   GroupChatEventType,
 } from "./types";
-import { Chat, Dialogs, Messages, Users } from "connectycube/dist/types/types";
+import {
+  Chat,
+  Dialogs,
+  Messages,
+  Users,
+  Config,
+} from "connectycube/dist/types/types";
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 ChatContext.displayName = "ChatContext";
@@ -495,8 +501,15 @@ export const ChatProvider = ({
       .filter((user) => user.id !== parseInt(localStorage.userId));
   };
 
-  const sendTypingStatus = (userId: number) => {
-    ConnectyCube.chat.sendIsTypingStatus(userId);
+  const sendTypingStatus = (dialog?: Dialogs.Dialog) => {
+    dialog ??= selectedDialog;
+    if (!dialog) {
+      throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
+    }
+
+    ConnectyCube.chat.sendIsTypingStatus(
+      dialog.type === 3 ? _getOpponentId(dialog) : dialog._id
+    );
   };
 
   const getLastActivity = async (userId: number): Promise<string> => {
@@ -548,6 +561,14 @@ export const ChatProvider = ({
     }));
 
     clearTimeout(typingTimers.current[dialogId + userId]);
+  };
+
+  const _getOpponentId = (dialog: Dialogs.Dialog): number => {
+    const opponentId = dialog.occupants_ids.filter((oId) => {
+      return oId !== currentUserId;
+    })[0];
+
+    return opponentId;
   };
 
   // setup callbacks once

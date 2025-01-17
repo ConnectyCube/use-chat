@@ -37,7 +37,7 @@ export interface ChatContextType {
   ) => Promise<void>;
   readMessage: (messageId: string, userId: number, dialogId: string) => void;
   searchUsers: (term: string) => Promise<Users.User[]>;
-  sendTypingStatus: (userId: number) => void;
+  sendTypingStatus: (dialog?: Dialogs.Dialog) => void;
   typingStatus: {
     [dialogId: string]: { [userId: string]: boolean };
   };
