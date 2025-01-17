@@ -7,13 +7,7 @@ import {
   FileAttachment,
   GroupChatEventType,
 } from "./types";
-import {
-  Chat,
-  Dialogs,
-  Messages,
-  Users,
-  Config,
-} from "connectycube/dist/types/types";
+import { Chat, Dialogs, Messages, Users } from "connectycube/dist/types/types";
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 ChatContext.displayName = "ChatContext";
@@ -31,7 +25,7 @@ export const useChat = (): ChatContextType => {
 export const ChatProvider = ({
   children,
 }: ChatProviderType): React.ReactElement => {
-  const [currentUserId, setCurrentUserId] = useState<number | null>();
+  const [currentUserId, setCurrentUserId] = useState<number | undefined>();
   const [dialogs, setDialogs] = useState<Dialogs.Dialog[]>([]);
   const [users, setUsers] = useState<{ [userId: number]: Users.User }>({});
   const [selectedDialog, setSelectedDialog] = useState<
@@ -64,7 +58,7 @@ export const ChatProvider = ({
   const disconnect = () => {
     if (ConnectyCube.chat.isConnected) {
       ConnectyCube.chat.disconnect();
-      setCurrentUserId(null);
+      setCurrentUserId(undefined);
     }
   };
 
@@ -160,6 +154,17 @@ export const ChatProvider = ({
     await getMessages(dialogId);
 
     await markDialogAsRead(dialog);
+  };
+
+  const getDialogOpponentId = (dialog: Dialogs.Dialog): number | undefined => {
+    if (dialog.type !== 3) {
+      return undefined;
+    }
+    const opponentId = dialog.occupants_ids.filter((oId) => {
+      return oId !== currentUserId;
+    })[0];
+
+    return opponentId;
   };
 
   const markDialogAsRead = async (dialog: Dialogs.Dialog): Promise<void> => {
@@ -266,19 +271,27 @@ export const ChatProvider = ({
     setSelectedDialog(undefined);
   };
 
-  const sendMessage = (
-    body: string,
-    dialog: Dialogs.Dialog,
-    opponentId?: number
-  ) => {
+  const sendMessage = (body: string, dialog?: Dialogs.Dialog) => {
+    dialog ??= selectedDialog;
+    if (!dialog) {
+      throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
+    }
+
+    const opponentId = getDialogOpponentId(dialog);
     _sendMessage(body, null, dialog, opponentId);
   };
 
   const sendMessageWithAttachment = async (
     file: File,
-    dialog: Dialogs.Dialog,
-    opponentId?: number
+    dialog?: Dialogs.Dialog
   ): Promise<void> => {
+    dialog ??= selectedDialog;
+    if (!dialog) {
+      throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
+    }
+
+    const opponentId = getDialogOpponentId(dialog);
+
     const tempId = Date.now() + "";
 
     // add message to store
@@ -508,7 +521,7 @@ export const ChatProvider = ({
     }
 
     ConnectyCube.chat.sendIsTypingStatus(
-      dialog.type === 3 ? _getOpponentId(dialog) : dialog._id
+      dialog.type === 3 ? (getDialogOpponentId(dialog) as number) : dialog._id
     );
   };
 
@@ -561,14 +574,6 @@ export const ChatProvider = ({
     }));
 
     clearTimeout(typingTimers.current[dialogId + userId]);
-  };
-
-  const _getOpponentId = (dialog: Dialogs.Dialog): number => {
-    const opponentId = dialog.occupants_ids.filter((oId) => {
-      return oId !== currentUserId;
-    })[0];
-
-    return opponentId;
   };
 
   // setup callbacks once
@@ -743,10 +748,12 @@ export const ChatProvider = ({
         connect,
         isConnected,
         disconnect,
+        currentUserId,
         getDialogs,
         dialogs,
         selectDialog,
         selectedDialog,
+        getDialogOpponentId,
         getMessages,
         messages,
         sendMessage,

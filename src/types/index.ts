@@ -9,6 +9,7 @@ export interface ChatContextType {
   connect: (credentials: Chat.ConnectionParams) => Promise<void>;
   isConnected: () => boolean;
   disconnect: () => void;
+  currentUserId?: number;
   createChat: (userId: number) => Promise<Dialogs.Dialog>;
   createGroupChat: (
     usersIds: number[],
@@ -17,23 +18,19 @@ export interface ChatContextType {
   getDialogs: (filters?: Dialogs.ListParams) => Promise<Dialogs.Dialog[]>;
   dialogs: Dialogs.Dialog[];
   selectedDialog?: Dialogs.Dialog;
+  selectDialog: (dialogId: string) => Promise<void>;
+  getDialogOpponentId: (dialog: Dialogs.Dialog) => number | undefined;
   users: { [userId: number]: Users.User };
   getMessages: (dialogId: string) => Promise<Messages.Message[]>;
   messages: { [key: string]: Messages.Message[] };
-  selectDialog: (dialogId: string) => Promise<void>;
   markDialogAsRead: (dialog: Dialogs.Dialog) => Promise<void>;
   addUsersToGroupChat: (usersIds: number[]) => Promise<void>;
   removeUsersFromGroupChat: (usersIds: number[]) => Promise<void>;
   leaveGroupChat: () => Promise<void>;
-  sendMessage: (
-    body: string,
-    dialog: Dialogs.Dialog,
-    opponentId?: number
-  ) => void;
+  sendMessage: (body: string, dialog?: Dialogs.Dialog) => void;
   sendMessageWithAttachment: (
     file: File,
-    dialog: Dialogs.Dialog,
-    opponentId?: number
+    dialog?: Dialogs.Dialog
   ) => Promise<void>;
   readMessage: (messageId: string, userId: number, dialogId: string) => void;
   searchUsers: (term: string) => Promise<Users.User[]>;
