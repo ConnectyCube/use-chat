@@ -42,7 +42,9 @@ const MyComponent = () => {
     await connect(chatCredentials);
 
     const userId = 208;
-    await createChat(userId);
+    const dialog = await createChat(userId);
+
+    await selectDialog(dialog._id)
 
     sendMessage("Hi there", selectedDialog)
   };
