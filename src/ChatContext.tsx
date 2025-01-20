@@ -1,5 +1,3 @@
-/* eslint-disable */
-import ConnectyCube from "connectycube";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   ChatContextType,
@@ -8,6 +6,7 @@ import {
   GroupChatEventType,
 } from "./types";
 import { Chat, Dialogs, Messages, Users } from "connectycube/dist/types/types";
+import ConnectyCube from "connectycube";
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 ChatContext.displayName = "ChatContext";

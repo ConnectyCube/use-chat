@@ -10,7 +10,6 @@
     "rollup": "rollup -c --bundleConfigAsCjs"
   },
   "dependencies": {
-    "connectycube": "^4.0.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.2",
@@ -26,6 +25,7 @@
     "typescript": "^5.7.2"
   },
   "peerDependencies": {
+    "connectycube": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   }
