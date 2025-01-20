@@ -156,7 +156,12 @@ export const ChatProvider = ({
     await markDialogAsRead(dialog);
   };
 
-  const getDialogOpponentId = (dialog: Dialogs.Dialog): number | undefined => {
+  const getDialogOpponentId = (dialog?: Dialogs.Dialog): number | undefined => {
+    dialog ??= selectedDialog;
+    if (!dialog) {
+      throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
+    }
+
     if (dialog.type !== 3) {
       return undefined;
     }
