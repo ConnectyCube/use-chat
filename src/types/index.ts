@@ -7,7 +7,7 @@ export interface ChatProviderType {
 
 export interface ChatContextType {
   connect: (credentials: Chat.ConnectionParams) => Promise<void>;
-  isConnected: () => boolean;
+  isConnected: boolean;
   disconnect: () => void;
   currentUserId?: number;
   createChat: (userId: number) => Promise<Dialogs.Dialog>;

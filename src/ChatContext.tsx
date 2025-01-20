@@ -25,6 +25,7 @@ export const ChatProvider = ({
   children,
 }: ChatProviderType): React.ReactElement => {
   const [currentUserId, setCurrentUserId] = useState<number | undefined>();
+  const [isConnected, setIsConnected] = useState(false);
   const [dialogs, setDialogs] = useState<Dialogs.Dialog[]>([]);
   const [users, setUsers] = useState<{ [userId: number]: Users.User }>({});
   const [selectedDialog, setSelectedDialog] = useState<
@@ -45,19 +46,17 @@ export const ChatProvider = ({
     try {
       await ConnectyCube.chat.connect(credentials);
       setCurrentUserId(credentials.userId);
+      setIsConnected(true);
     } catch (error) {
       console.error(`Failed to connect due to ${error}`);
     }
-  };
-
-  const isConnected = () => {
-    return ConnectyCube.chat.isConnected;
   };
 
   const disconnect = () => {
     if (ConnectyCube.chat.isConnected) {
       ConnectyCube.chat.disconnect();
       setCurrentUserId(undefined);
+      setIsConnected(false);
     }
   };
 
