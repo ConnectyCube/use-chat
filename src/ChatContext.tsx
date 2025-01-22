@@ -149,7 +149,7 @@ export const ChatProvider = ({
 
     await getMessages(dialogId);
 
-    await markDialogAsRead(dialog);
+    await markDialogAsRead(dialog).catch((_error) => {});
   };
 
   const getDialogOpponentId = (dialog?: Dialogs.Dialog): number | undefined => {
