@@ -65,17 +65,17 @@ export const ChatProvider = ({
       type: 3,
       occupants_ids: [userId],
     };
-    const dialog = await ConnectyCube.chat.dialog.create(params);
+    const newDialog = await ConnectyCube.chat.dialog.create(params);
 
-    setDialogs([dialog, ...dialogs]);
+    if (!dialogs.find((d) => d._id === newDialog._id)) {
+      setDialogs([newDialog, ...dialogs]);
 
-    _notifyUsers(GroupChatEventType.NEW_DIALOG, dialog._id, userId);
+      _notifyUsers(GroupChatEventType.NEW_DIALOG, newDialog._id, userId);
 
-    _retrieveAndStoreUsers([userId]);
+      _retrieveAndStoreUsers([userId]);
+    }
 
-    setSelectedDialog(dialog);
-
-    return dialog;
+    return newDialog;
   };
 
   const createGroupChat = async (
@@ -97,8 +97,6 @@ export const ChatProvider = ({
     });
 
     _retrieveAndStoreUsers(usersIds);
-
-    setSelectedDialog(dialog);
 
     return dialog;
   };
