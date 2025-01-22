@@ -494,13 +494,15 @@ export const ChatProvider = ({
       full_name: { start_with: term },
       limit: 100,
     });
-    users.push(...usersWithFullName.items);
+    users.push(
+      ...usersWithFullName.items.filter((user) => user.id !== currentUserId)
+    );
 
     const usersWithLogin = await ConnectyCube.users.getV2({
       login: { start_with: term },
       limit: 100,
     });
-    users.push(...usersWithLogin.items);
+    users.push(...usersWithLogin.items.filter((user) => user.id !== currentUserId));
 
     // remove duplicates and current user for search
     return users
