@@ -452,13 +452,7 @@ export const ChatProvider = ({
   };
 
   const _retrieveAndStoreUsers = async (usersIds: number[]) => {
-    const usersToFind: number[] = [];
-    Object.keys(usersIds).forEach((userIdStr) => {
-      const userId = Number(userIdStr);
-      if (!users[userId]) {
-        usersToFind.push(userId);
-      }
-    });
+    const usersToFind = usersIds.filter((userId) => !users[userId]);
     if (usersToFind.length > 0) {
       const params = {
         limit: 100,
@@ -473,6 +467,7 @@ export const ChatProvider = ({
         },
         {}
       );
+
       setUsers({ ...users, ...usersIdsMap });
     }
   };
