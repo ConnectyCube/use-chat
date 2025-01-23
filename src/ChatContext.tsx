@@ -130,7 +130,7 @@ export const ChatProvider = ({
 
     // store messages
     const retrievedMessages = result.items.map((msg) => {
-      const attachmentsUrls = msg.attachments.map((attachment) => {
+      const attachmentsUrls = msg.attachments?.map((attachment) => {
         const fileUrl = ConnectyCube.storage.privateUrl(attachment.uid);
         return fileUrl;
       });
@@ -709,7 +709,7 @@ export const ChatProvider = ({
         prevMessages[dialogId].forEach((message) => {
           if (message._id === messageId && message.read === 0) {
             message.read = 1;
-            message.read_ids.push(userId);
+            message.read_ids?.push(userId);
           }
         });
         return prevMessages;
