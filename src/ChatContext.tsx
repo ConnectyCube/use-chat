@@ -258,13 +258,15 @@ export const ChatProvider = ({
     await ConnectyCube.chat.dialog.delete(selectedDialog._id);
 
     // notify participants with system message
-    selectedDialog.occupants_ids.forEach((id) => {
-      _notifyUsers(
-        GroupChatEventType.REMOVED_FROM_DIALOG,
-        selectedDialog._id,
-        currentUserId as number
-      );
-    });
+    selectedDialog.occupants_ids
+      .filter((userId) => userId !== currentUserId)
+      .forEach((userId) => {
+        _notifyUsers(
+          GroupChatEventType.REMOVED_FROM_DIALOG,
+          selectedDialog._id,
+          userId
+        );
+      });
 
     setDialogs(dialogs.filter((dialog) => dialog._id !== selectedDialog._id));
     setSelectedDialog(undefined);
@@ -500,7 +502,9 @@ export const ChatProvider = ({
       login: { start_with: term },
       limit: 100,
     });
-    users.push(...usersWithLogin.items.filter((user) => user.id !== currentUserId));
+    users.push(
+      ...usersWithLogin.items.filter((user) => user.id !== currentUserId)
+    );
 
     // remove duplicates and current user for search
     return users
