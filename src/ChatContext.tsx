@@ -142,12 +142,10 @@ export const ChatProvider = ({
     return retrievedMessages;
   };
 
-  const selectDialog = async (dialogId: string): Promise<void> => {
-    const dialog = dialogs.find((d) => d._id === dialogId) as Dialogs.Dialog;
-
+  const selectDialog = async (dialog: Dialogs.Dialog): Promise<void> => {
     setSelectedDialog(dialog);
 
-    await getMessages(dialogId);
+    await getMessages(dialog._id);
 
     await markDialogAsRead(dialog).catch((_error) => {});
   };

@@ -18,7 +18,7 @@ export interface ChatContextType {
   getDialogs: (filters?: Dialogs.ListParams) => Promise<Dialogs.Dialog[]>;
   dialogs: Dialogs.Dialog[];
   selectedDialog?: Dialogs.Dialog;
-  selectDialog: (dialogId: string) => Promise<void>;
+  selectDialog: (dialog: Dialogs.Dialog) => Promise<void>;
   getDialogOpponentId: (dialog?: Dialogs.Dialog) => number | undefined;
   users: { [userId: number]: Users.User };
   getMessages: (dialogId: string) => Promise<Messages.Message[]>;
