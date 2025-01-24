@@ -189,11 +189,13 @@ export const ChatProvider = ({
     await ConnectyCube.chat.dialog.update(dialogId, toUpdateParams);
 
     // notify existing participants with system message
-    selectedDialog.occupants_ids.forEach((userId) => {
-      _notifyUsers(GroupChatEventType.ADD_PARTICIPANTS, dialogId, userId, {
-        addedParticipantsIds: usersIds.join(),
+    selectedDialog.occupants_ids
+      .filter((userId) => userId !== currentUserId)
+      .forEach((userId) => {
+        _notifyUsers(GroupChatEventType.ADD_PARTICIPANTS, dialogId, userId, {
+          addedParticipantsIds: usersIds.join(),
+        });
       });
-    });
     // notify new user with system message
     usersIds.forEach((userId) => {
       _notifyUsers(GroupChatEventType.ADDED_TO_DIALOG, dialogId, userId);
