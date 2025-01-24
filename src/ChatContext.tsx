@@ -231,7 +231,7 @@ export const ChatProvider = ({
 
     selectedDialog.occupants_ids
       .filter((userId) => {
-        return !usersIds.includes(userId);
+        return !usersIds.includes(userId) && userId !== currentUserId;
       })
       .forEach((userId) => {
         _notifyUsers(GroupChatEventType.REMOVE_PARTICIPANTS, dialogId, userId, {
