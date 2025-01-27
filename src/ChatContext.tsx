@@ -8,6 +8,7 @@ import {
 import { Chat, Dialogs, Messages, Users } from "connectycube/dist/types/types";
 import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
+import { formatDistanceToNow } from "date-fns";
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 ChatContext.displayName = "ChatContext";
@@ -170,6 +171,10 @@ export const ChatProvider = ({
     })[0];
 
     return opponentId;
+  };
+
+  const _findDialog = (dialogId: string): Dialogs.Dialog => {
+    return dialogsRef.current.find((d) => d._id === dialogId) as Dialogs.Dialog;
   };
 
   const markDialogAsRead = async (dialog: Dialogs.Dialog): Promise<void> => {
@@ -429,10 +434,6 @@ export const ChatProvider = ({
     });
   };
 
-  const _findDialog = (dialogId: string): Dialogs.Dialog => {
-    return dialogsRef.current.find((d) => d._id === dialogId) as Dialogs.Dialog;
-  };
-
   const readMessage = (messageId: string, userId: number, dialogId: string) => {
     ConnectyCube.chat.sendReadStatus({
       messageId,
@@ -582,6 +583,22 @@ export const ChatProvider = ({
     }));
 
     clearTimeout(typingTimers.current[dialogId + userId]);
+  };
+
+  const lastMessageSentTimeString = (dialog: Dialogs.Dialog): string => {
+    return formatDistanceToNow(
+      dialog.last_message_date_sent
+        ? (dialog.last_message_date_sent as number) * 1000
+        : (dialog.created_at as string),
+      {
+        addSuffix: true,
+      }
+    );
+  };
+  const messageSentTimeString = (message: Messages.Message): string => {
+    return formatDistanceToNow((message.date_sent as number) * 1000, {
+      addSuffix: true,
+    });
   };
 
   // setup callbacks once
@@ -785,6 +802,8 @@ export const ChatProvider = ({
         addUsersToGroupChat,
         leaveGroupChat,
         readMessage,
+        lastMessageSentTimeString,
+        messageSentTimeString,
       }}
     >
       {children}
