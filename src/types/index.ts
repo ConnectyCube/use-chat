@@ -40,6 +40,12 @@ export interface ChatContextType {
   };
   getLastActivity: (userId: number) => Promise<string>;
   lastActivity: { [userId: number]: string };
+  lastMessageSentTimeString: (
+    dialog: Dialogs.Dialog
+  ) => string;
+  messageSentTimeString: (
+    message: Messages.Message
+  ) => string;
 }
 
 export interface FileAttachment {
