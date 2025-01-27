@@ -172,6 +172,9 @@ export const ChatProvider = ({
 
   const selectDialog = async (dialog: Dialogs.Dialog): Promise<void> => {
     setSelectedDialog(dialog);
+    if (!dialog) {
+      return;
+    }
 
     await getMessages(dialog._id);
 
