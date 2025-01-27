@@ -158,7 +158,7 @@ export const ChatProvider = ({
         return a._id.toString().localeCompare(b._id.toString()); // revers sort
       })
       .map((msg) => {
-        const attachmentsUrls = msg.attachments.map((attachment) => {
+        const attachmentsUrls = msg.attachments?.map((attachment) => {
           const fileUrl = ConnectyCube.storage.privateUrl(attachment.uid);
           return fileUrl;
         });
