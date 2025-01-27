@@ -10,6 +10,7 @@
     "rollup": "rollup -c --bundleConfigAsCjs"
   },
   "dependencies": {
+    "react-usestateref": "^1.0.9"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.2",

@@ -7,6 +7,7 @@ import {
 } from "./types";
 import { Chat, Dialogs, Messages, Users } from "connectycube/dist/types/types";
 import ConnectyCube from "connectycube";
+import useStateRef from "react-usestateref";
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 ChatContext.displayName = "ChatContext";
@@ -24,14 +25,18 @@ export const useChat = (): ChatContextType => {
 export const ChatProvider = ({
   children,
 }: ChatProviderType): React.ReactElement => {
-  const [currentUserId, setCurrentUserId] = useState<number | undefined>();
+  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<
+    number | undefined
+  >();
   const [isConnected, setIsConnected] = useState(false);
-  const [dialogs, setDialogs] = useState<Dialogs.Dialog[]>([]);
-  const [users, setUsers] = useState<{ [userId: number]: Users.User }>({});
+  const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
+  const [users, setUsers, usersRef] = useStateRef<{
+    [userId: number]: Users.User;
+  }>({});
   const [selectedDialog, setSelectedDialog] = useState<
     Dialogs.Dialog | undefined
   >();
-  const [messages, setMessages] = useState<{
+  const [messages, setMessages, messagesRef] = useStateRef<{
     [dialogId: string]: Messages.Message[];
   }>({});
   const [lastActivity, setLastActivity] = useState<{
@@ -67,7 +72,8 @@ export const ChatProvider = ({
     };
     const newDialog = await ConnectyCube.chat.dialog.create(params);
 
-    if (!dialogs.find((d) => d._id === newDialog._id)) {
+    const dialog = _findDialog(newDialog._id);
+    if (!dialog) {
       setDialogs([newDialog, ...dialogs]);
 
       _notifyUsers(GroupChatEventType.NEW_DIALOG, newDialog._id, userId);
@@ -204,9 +210,7 @@ export const ChatProvider = ({
     // update store
     _retrieveAndStoreUsers(usersIds);
     //
-    const updatedDialog = dialogs.find(
-      (d) => d._id === selectedDialog._id
-    ) as Dialogs.Dialog;
+    const updatedDialog = _findDialog(selectedDialog._id);
     updatedDialog.occupants_ids = Array.from(
       new Set([...updatedDialog.occupants_ids, ...usersIds])
     );
@@ -242,9 +246,7 @@ export const ChatProvider = ({
       });
 
     // update store
-    const updatedDialog = dialogs.find(
-      (d) => d._id === selectedDialog._id
-    ) as Dialogs.Dialog;
+    const updatedDialog = _findDialog(selectedDialog._id);
     updatedDialog.occupants_ids = updatedDialog.occupants_ids.filter(
       (userId) => !usersIds.includes(userId)
     );
@@ -395,14 +397,14 @@ export const ChatProvider = ({
     const ts = Math.round(new Date().getTime() / 1000);
 
     // update dialog
-    const dialog = dialogs.find((d) => d._id === dialogId) as Dialogs.Dialog;
+    const dialog = _findDialog(dialogId);
     dialog.last_message = body;
     dialog.last_message_user_id = senderId;
     dialog.last_message_date_sent = ts;
-    setDialogs([...dialogs]);
+    setDialogs([...dialogsRef.current]);
 
     setMessages({
-      ...messages,
+      ...messagesRef.current,
       [dialog._id]: [
         {
           _id: messageId,
@@ -422,9 +424,13 @@ export const ChatProvider = ({
           reactions: {} as any,
           isLoading,
         },
-        ...messages[dialog._id],
+        ...messagesRef.current[dialog._id],
       ],
     });
+  };
+
+  const _findDialog = (dialogId: string): Dialogs.Dialog => {
+    return dialogsRef.current.find((d) => d._id === dialogId) as Dialogs.Dialog;
   };
 
   const readMessage = (messageId: string, userId: number, dialogId: string) => {
@@ -438,13 +444,13 @@ export const ChatProvider = ({
     messages[dialogId].forEach((message) => {
       if (message._id === messageId) {
         message.read = 1;
-        dialogs.find((dialog) => {
-          if (dialog._id === dialogId) {
-            dialog.unread_messages_count >= 1
-              ? dialog.unread_messages_count--
-              : 0;
-          }
-        });
+        const dialog = _findDialog(dialogId);
+        if (dialog) {
+          dialog.unread_messages_count >= 1
+            ? dialog.unread_messages_count--
+            : 0;
+        }
+
         setDialogs([...dialogs]);
       }
     });
@@ -468,7 +474,7 @@ export const ChatProvider = ({
         {}
       );
 
-      setUsers({ ...users, ...usersIdsMap });
+      setUsers({ ...usersRef.current, ...usersIdsMap });
     }
   };
 
@@ -584,11 +590,18 @@ export const ChatProvider = ({
       userId: number,
       message: Chat.Message
     ) => {
+      // TODO: handle multi-device
+      if (userId === currentUserIdRef.current) {
+        return;
+      }
+
       const dialogId = message.dialog_id as string;
       const messageId = message.id;
       const body = message.body || "";
       const opponentId =
-        message.type === "chat" ? (currentUserId as number) : undefined;
+        message.type === "chat"
+          ? (currentUserIdRef.current as number)
+          : undefined;
 
       _stopTyping(userId, dialogId);
 
@@ -609,9 +622,7 @@ export const ChatProvider = ({
 
       // updates chats store
       setDialogs((prevDialogs) => {
-        const dialog = prevDialogs.find(
-          (d) => d._id === dialogId
-        ) as Dialogs.Dialog;
+        const dialog = _findDialog(dialogId);
 
         if (!selectedDialog || selectedDialog._id !== message.dialog_id) {
           dialog.unread_messages_count =
@@ -630,6 +641,11 @@ export const ChatProvider = ({
       const dialogId = message.extension.dialogId;
       const senderId = message.userId;
 
+      // TODO: handle multi-device
+      if (senderId === currentUserIdRef.current) {
+        return;
+      }
+
       switch (message.body) {
         // when someone created a new chat with you or added to chat
         case GroupChatEventType.NEW_DIALOG:
@@ -640,7 +656,7 @@ export const ChatProvider = ({
           const dialog = result.items[0];
 
           _retrieveAndStoreUsers(
-            dialog.occupants_ids.filter((id) => id !== currentUserId)
+            dialog.occupants_ids.filter((id) => id !== currentUserIdRef.current)
           );
 
           setDialogs((prevDialogs) => {
@@ -655,10 +671,8 @@ export const ChatProvider = ({
             .split(",")
             .map(Number);
           _retrieveAndStoreUsers(usersIds);
+          const dialog = _findDialog(dialogId);
 
-          const dialog = dialogs.find(
-            (d) => d._id === dialogId
-          ) as Dialogs.Dialog;
           setDialogs((prevDialogs) => {
             dialog.occupants_ids = dialog.occupants_ids.concat(usersIds);
             return [dialog, ...prevDialogs];
@@ -670,10 +684,8 @@ export const ChatProvider = ({
           const usersIds = message.extension.removedParticipantsIds
             .split(",")
             .map(Number);
+          const dialog = _findDialog(dialogId);
 
-          const dialog = dialogs.find(
-            (d) => d._id === dialogId
-          ) as Dialogs.Dialog;
           setDialogs((prevDialogs) => {
             dialog.occupants_ids = dialog.occupants_ids.filter((id) => {
               return !usersIds.includes(id);
@@ -685,10 +697,8 @@ export const ChatProvider = ({
         // when other user left the chat
         case GroupChatEventType.REMOVED_FROM_DIALOG: {
           const usersIds = [senderId];
+          const dialog = _findDialog(dialogId);
 
-          const dialog = dialogs.find(
-            (d) => d._id === dialogId
-          ) as Dialogs.Dialog;
           setDialogs((prevDialogs) => {
             dialog.occupants_ids = dialog.occupants_ids.filter((id) => {
               return !usersIds.includes(id);
@@ -705,7 +715,8 @@ export const ChatProvider = ({
       dialogId: string,
       userId: number
     ) => {
-      if (userId === currentUserId) {
+      // TODO: handle multi-device
+      if (userId === currentUserIdRef.current) {
         return;
       }
 
@@ -725,7 +736,8 @@ export const ChatProvider = ({
       userId: number,
       dialogId: string
     ) => {
-      if (userId === currentUserId) {
+      // TODO: handle multi-device
+      if (userId === currentUserIdRef.current) {
         return;
       }
 
