@@ -136,14 +136,18 @@ export const ChatProvider = ({
     const result = await ConnectyCube.chat.message.list(params);
 
     // store messages
-    const retrievedMessages = result.items.map((msg) => {
-      const attachmentsUrls = msg.attachments.map((attachment) => {
-        const fileUrl = ConnectyCube.storage.privateUrl(attachment.uid);
-        return fileUrl;
-      });
+    const retrievedMessages = result.items
+      .sort((a: Messages.Message, b: Messages.Message) => {
+        return a._id.toString().localeCompare(b._id.toString()); // revers sort
+      })
+      .map((msg) => {
+        const attachmentsUrls = msg.attachments.map((attachment) => {
+          const fileUrl = ConnectyCube.storage.privateUrl(attachment.uid);
+          return fileUrl;
+        });
 
-      return { ...msg, attachmentsUrls };
-    });
+        return { ...msg, attachmentsUrls };
+      });
     setMessages({ ...messages, [dialogId]: retrievedMessages });
 
     return retrievedMessages;
@@ -411,6 +415,7 @@ export const ChatProvider = ({
     setMessages({
       ...messagesRef.current,
       [dialog._id]: [
+        ...messagesRef.current[dialog._id],
         {
           _id: messageId,
           created_at: ts,
@@ -429,7 +434,6 @@ export const ChatProvider = ({
           reactions: {} as any,
           isLoading,
         },
-        ...messagesRef.current[dialog._id],
       ],
     });
   };
