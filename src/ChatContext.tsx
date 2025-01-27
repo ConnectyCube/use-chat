@@ -5,7 +5,13 @@ import {
   FileAttachment,
   GroupChatEventType,
 } from "./types";
-import { Chat, Dialogs, Messages, Users } from "connectycube/dist/types/types";
+import {
+  Chat,
+  DateOrTimestamp,
+  Dialogs,
+  Messages,
+  Users,
+} from "connectycube/dist/types/types";
 import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
 import { formatDistanceToNow } from "date-fns";
@@ -115,7 +121,18 @@ export const ChatProvider = ({
     const result = await ConnectyCube.chat.dialog.list(filters);
 
     // store dialogs
-    setDialogs(result.items);
+    setDialogs(
+      result.items.sort((a, b) => {
+        const dateA =
+          _parseDate(a.last_message_date_sent) ||
+          (_parseDate(a.created_at) as number);
+        const dateB =
+          _parseDate(b.last_message_date_sent) ||
+          (_parseDate(b.created_at) as number);
+
+        return dateB - dateA; // Sort in ascending order
+      })
+    );
 
     // store users
     const usersIds = Array.from(
@@ -410,7 +427,18 @@ export const ChatProvider = ({
     dialog.last_message = body;
     dialog.last_message_user_id = senderId;
     dialog.last_message_date_sent = ts;
-    setDialogs([...dialogsRef.current]);
+    setDialogs(
+      [...dialogsRef.current].sort((a, b) => {
+        const dateA =
+          _parseDate(a.last_message_date_sent) ||
+          (_parseDate(a.created_at) as number);
+        const dateB =
+          _parseDate(b.last_message_date_sent) ||
+          (_parseDate(b.created_at) as number);
+
+        return dateB - dateA; // Sort in ascending order
+      })
+    );
 
     setMessages({
       ...messagesRef.current,
@@ -436,6 +464,15 @@ export const ChatProvider = ({
         },
       ],
     });
+  };
+
+  const _parseDate = (date: DateOrTimestamp): number | undefined => {
+    if (typeof date === "string") {
+      return new Date(date).getTime();
+    } else if (typeof date === "number") {
+      return date * 1000;
+    }
+    return undefined;
   };
 
   const readMessage = (messageId: string, userId: number, dialogId: string) => {
