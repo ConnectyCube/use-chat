@@ -6,10 +6,14 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/types/index.d.ts",
-  "scripts": {
-    "rollup": "rollup -c --bundleConfigAsCjs"
+  "exports": {
+    "require": "./dist/index.cjs",
+    "import": "./dist/index.js",
+    "default": "./dist/index.js",
+    "types": "./dist/types/index.d.ts"
   },
-  "dependencies": {
+  "scripts": {
+    "rollup": "rollup -c"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.2",
@@ -18,9 +22,7 @@
     "@rollup/plugin-typescript": "^12.1.2",
     "@types/react": "^19.0.7",
     "rollup": "^4.31.0",
-    "rollup-plugin-dts": "^6.1.1",
     "rollup-plugin-peer-deps-external": "^2.2.4",
-    "rollup-plugin-postcss": "^4.0.2",
     "tslib": "^2.8.1",
     "typescript": "^5.7.3"
   },
