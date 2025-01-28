@@ -172,6 +172,9 @@ export const ChatProvider = ({
 
   const selectDialog = async (dialog: Dialogs.Dialog): Promise<void> => {
     setSelectedDialog(dialog);
+    if (!dialog) {
+      return;
+    }
 
     await getMessages(dialog._id);
 
@@ -309,7 +312,16 @@ export const ChatProvider = ({
     }
 
     const opponentId = getDialogOpponentId(dialog);
-    _sendMessage(body, null, dialog, opponentId);
+    const messageId = _sendMessage(body, null, dialog, opponentId);
+
+    // add message to store
+    _addMessageToStore(
+      messageId,
+      body,
+      dialog._id,
+      currentUserId as number,
+      opponentId
+    );
   };
 
   const sendMessageWithAttachment = async (
@@ -347,15 +359,9 @@ export const ChatProvider = ({
     };
     const result = await ConnectyCube.storage.createAndUpload(fileParams);
 
-    // update message in store (reset loading state)
-    (
-      messages[dialog._id].find((msg) => msg._id === tempId) as Messages.Message
-    ).isLoading = false;
-    setMessages({ ...messages });
-
     // send
     const messageId = _sendMessage(
-      file.type,
+      "Attachment",
       { uid: result.uid as string, type: file.type },
       dialog,
       opponentId
@@ -364,14 +370,13 @@ export const ChatProvider = ({
     const fileUrl = ConnectyCube.storage.privateUrl(result.uid);
 
     // update message in store (update it and file url)
-    const msg = messages[dialog._id].find(
+    const msg = messagesRef.current[dialog._id].find(
       (msg) => msg._id === tempId
     ) as Messages.Message;
     msg._id = messageId;
     msg.attachmentsUrls = [fileUrl];
-    setMessages({ ...messages });
-
-    // TODO: https://react.dev/reference/react/useState#updating-state-based-on-the-previous-state
+    msg.isLoading = false;
+    setMessages({ ...messagesRef.current });
   };
 
   const _sendMessage = (
@@ -397,15 +402,6 @@ export const ChatProvider = ({
     const messageId = ConnectyCube.chat.send(
       dialog.type === 3 ? (opponentId as number) : dialog._id,
       messageParams
-    );
-
-    // add message to store
-    _addMessageToStore(
-      messageId,
-      body,
-      dialog._id,
-      currentUserId as number,
-      opponentId
     );
 
     return messageId;
