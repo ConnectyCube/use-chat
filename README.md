@@ -63,11 +63,12 @@ export default MyComponent;
 
 ## How to publish new version
 
-1. `npm run rollup`
-2. update the library version in `package.json`
-3. Login to npm `npm login`
-4. publish library `npm publish --access public`
-5. Verify that our library has been published successfully: `npm view @connectycube/use-chat`
+1. Have Node20, do `npm i`
+2. `npm run build`
+3. update the library version in `package.json`
+4. Login to npm `npm login`
+5. publish library `npm publish --access public`
+6. Verify that our library has been published successfully: `npm view @connectycube/use-chat`
 
 ## Community and support
 
