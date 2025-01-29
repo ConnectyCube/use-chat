@@ -81,6 +81,9 @@ Check types for more API examples https://github.com/ConnectyCube/use-chat/blob/
 4. Login to npm `npm login`
 5. publish library `npm publish --access public`
 6. Verify that our library has been published successfully: `npm view @connectycube/use-chat`
+7. `git tag 0.10.0`
+8. `git push origin --tags`
+9. Create release in GitHub https://github.com/ConnectyCube/use-chat/releases
 
 ## Community and support
 
