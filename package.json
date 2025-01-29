@@ -1,7 +1,7 @@
 {
   "name": "@connectycube/use-chat",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.10.0",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

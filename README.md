@@ -34,25 +34,35 @@ import { useChat } from "@connectycube/use-chat";
 const MyComponent = () => {
   const { connect, createChat, sendMessage, selectedDialog } = useChat();
 
-  const handle = async () => {
+  const handleConnect = async () => {
     const chatCredentials = {
       userId: 22,
       password: "password",
     };
     await connect(chatCredentials);
+  };
 
-    const userId = 208;
+  const handleCreateChat = async () => {
+    const userId = 456;
     const dialog = await createChat(userId);
+    await selectDialog(dialog);
+  };
 
-    await selectDialog(dialog._id)
-
-    sendMessage("Hi there", selectedDialog)
+  const handleSendMessage = async () => {
+    // send message to selected dialog
+    sendMessage("Hi there");
   };
 
   return (
     <div className="container">
-      <button type="button" onClick={handle}>
-        Connect & send message
+      <button type="button" onClick={handleConnect}>
+        Connect
+      </button>
+      <button type="button" onClick={handleCreateChat}>
+        Create chat
+      </button>
+      <button type="button" onClick={handleSendMessage}>
+        Send message
       </button>
     </div>
   );
