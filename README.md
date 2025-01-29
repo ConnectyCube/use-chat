@@ -71,6 +71,8 @@ const MyComponent = () => {
 export default MyComponent;
 ```
 
+Check types for more API examples https://github.com/ConnectyCube/use-chat/blob/main/src/types/index.ts
+
 ## How to publish new version
 
 1. Have Node20, do `npm i`

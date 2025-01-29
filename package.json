@@ -1,7 +1,17 @@
 {
   "name": "@connectycube/use-chat",
-  "private": true,
+  "description": "A React hook for state management in ConnectyCube-powered chat solutions",
   "version": "0.10.0",
+  "homepage": "https://github.com/ConnectyCube/use-chat",
+  "keywords": [
+    "react",
+    "chat",
+    "instant-messaging",
+    "chat-application",
+    "react-hooks"
+  ],
+  "license": "Apache-2.0",
+  "author": "Garry ConnectyCube <admin@connectycube.com>",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -11,6 +21,10 @@
     "require": "./dist/index.cjs",
     "import": "./dist/index.js",
     "default": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:ConnectyCube/use-chat.git"
   },
   "files": [
     "dist"
