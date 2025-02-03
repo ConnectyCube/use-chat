@@ -91,7 +91,7 @@ export const ChatProvider = ({
 
       _notifyUsers(GroupChatEventType.NEW_DIALOG, newDialog._id, userId);
 
-      _retrieveAndStoreUsers([userId]);
+      _retrieveAndStoreUsers([userId, currentUserId as number]);
     }
 
     return newDialog;
@@ -115,7 +115,7 @@ export const ChatProvider = ({
       _notifyUsers(GroupChatEventType.NEW_DIALOG, dialog._id, userId);
     });
 
-    _retrieveAndStoreUsers(usersIds);
+    _retrieveAndStoreUsers([...usersIds, currentUserId as number]);
 
     return dialog;
   };
@@ -188,7 +188,9 @@ export const ChatProvider = ({
       setActivatedDialogs({ ...activatedDialogs, [dialog._id]: true });
     }
 
-    await markDialogAsRead(dialog).catch((_error) => {});
+    if (dialog.unread_messages_count > 0) {
+      await markDialogAsRead(dialog).catch((_error) => {});
+    }
   };
 
   const getDialogOpponentId = (dialog?: Dialogs.Dialog): number | undefined => {
@@ -447,9 +449,9 @@ export const ChatProvider = ({
     );
 
     setMessages({
-      ...messagesRef.current,
+      ...(messagesRef.current || {}),
       [dialog._id]: [
-        ...messagesRef.current[dialog._id],
+        ...(messagesRef.current[dialog._id] || {}),
         {
           _id: messageId,
           created_at: ts,
