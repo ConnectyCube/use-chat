@@ -449,9 +449,9 @@ export const ChatProvider = ({
     );
 
     setMessages({
-      ...messagesRef.current,
+      ...(messagesRef.current || {}),
       [dialog._id]: [
-        ...messagesRef.current[dialog._id],
+        ...(messagesRef.current[dialog._id] || {}),
         {
           _id: messageId,
           created_at: ts,
