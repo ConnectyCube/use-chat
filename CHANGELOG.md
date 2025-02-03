@@ -3,9 +3,9 @@
 ## 0.11.0
 
 ### Features
-- A
-- B
-- C
+
+- Introduced `isOnline` state
+- When call `selectDialog`, the messages will be retrieved if chat is not activated yet
 
 ## 0.10.0
 
