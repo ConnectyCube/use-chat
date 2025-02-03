@@ -11,6 +11,7 @@
 
 - In `selectDialog`, call `markDialogAsRead` only when `unread_messages_count > 0`
 - current user id is missing in `users`
+- fix crash when add message to store
 
 ## 0.10.0
 
