@@ -32,6 +32,9 @@ export const useChat = (): ChatContextType => {
 export const ChatProvider = ({
   children,
 }: ChatProviderType): React.ReactElement => {
+  const [isOnline, setIsOnline, isOnlineRef] = useStateRef<boolean>(
+    navigator.onLine
+  );
   const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<
     number | undefined
   >();
@@ -51,6 +54,9 @@ export const ChatProvider = ({
   }>({});
   const [typingStatus, setTypingStatus] = useState<{
     [dialogId: string]: { [userId: string]: boolean };
+  }>({});
+  const [activatedDialogs, setActivatedDialogs] = useStateRef<{
+    [dialogId: string]: boolean;
   }>({});
   const typingTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
@@ -176,7 +182,11 @@ export const ChatProvider = ({
       return;
     }
 
-    await getMessages(dialog._id);
+    // retrieve messages if chat is not activated yet
+    if (!activatedDialogs[dialog._id]) {
+      await getMessages(dialog._id);
+      setActivatedDialogs({ ...activatedDialogs, [dialog._id]: true });
+    }
 
     await markDialogAsRead(dialog).catch((_error) => {});
   };
@@ -638,8 +648,45 @@ export const ChatProvider = ({
     });
   };
 
-  // setup callbacks once
+  // Internet listeners
   useEffect(() => {
+    const abortController1 = new AbortController();
+    const abortController2 = new AbortController();
+
+    window.addEventListener(
+      "online",
+      () => {
+        setIsOnline(true);
+      },
+      {
+        signal: abortController1.signal,
+      }
+    );
+    window.addEventListener(
+      "offline",
+      () => {
+        setIsOnline(false);
+        setActivatedDialogs({});
+      },
+      {
+        signal: abortController2.signal,
+      }
+    );
+
+    return () => {
+      abortController1.abort();
+      abortController2.abort();
+    };
+  }, []);
+
+  // Chat callbacks
+  useEffect(() => {
+    ConnectyCube.chat.onDisconnectedListener = () => {
+      setActivatedDialogs({});
+    };
+
+    // ConnectyCube.chat.onReconnectListener = () => {};
+
     ConnectyCube.chat.onMessageListener = (
       userId: number,
       message: Chat.Message
@@ -813,6 +860,7 @@ export const ChatProvider = ({
   return (
     <ChatContext.Provider
       value={{
+        isOnline,
         connect,
         isConnected,
         disconnect,

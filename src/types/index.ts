@@ -6,6 +6,7 @@ export interface ChatProviderType {
 }
 
 export interface ChatContextType {
+  isOnline: boolean;
   connect: (credentials: Chat.ConnectionParams) => Promise<void>;
   isConnected: boolean;
   disconnect: () => void;
@@ -40,12 +41,8 @@ export interface ChatContextType {
   };
   getLastActivity: (userId: number) => Promise<string>;
   lastActivity: { [userId: number]: string };
-  lastMessageSentTimeString: (
-    dialog: Dialogs.Dialog
-  ) => string;
-  messageSentTimeString: (
-    message: Messages.Message
-  ) => string;
+  lastMessageSentTimeString: (dialog: Dialogs.Dialog) => string;
+  messageSentTimeString: (message: Messages.Message) => string;
 }
 
 export interface FileAttachment {
