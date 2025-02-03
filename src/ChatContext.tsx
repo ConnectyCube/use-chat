@@ -91,7 +91,7 @@ export const ChatProvider = ({
 
       _notifyUsers(GroupChatEventType.NEW_DIALOG, newDialog._id, userId);
 
-      _retrieveAndStoreUsers([userId]);
+      _retrieveAndStoreUsers([userId, currentUserId as number]);
     }
 
     return newDialog;
@@ -115,7 +115,7 @@ export const ChatProvider = ({
       _notifyUsers(GroupChatEventType.NEW_DIALOG, dialog._id, userId);
     });
 
-    _retrieveAndStoreUsers(usersIds);
+    _retrieveAndStoreUsers([...usersIds, currentUserId as number]);
 
     return dialog;
   };
