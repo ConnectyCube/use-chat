@@ -188,7 +188,9 @@ export const ChatProvider = ({
       setActivatedDialogs({ ...activatedDialogs, [dialog._id]: true });
     }
 
-    await markDialogAsRead(dialog).catch((_error) => {});
+    if (dialog.unread_messages_count > 0) {
+      await markDialogAsRead(dialog).catch((_error) => {});
+    }
   };
 
   const getDialogOpponentId = (dialog?: Dialogs.Dialog): number | undefined => {
