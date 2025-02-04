@@ -4,11 +4,11 @@
 
 ### Features
 
-- Added `listOnlineUsers` function to get a list of users that are currently online.
+- Added `listOnlineUsers` function to get a list of current online users.
 
 ```typescript
 /**
- * Retrieves online users no more frequently than once per minute with same parameters
+ * Retrieves online users no more frequently than once per minute with the same parameters
  * Use the 'force' option to bypass this limitation if necessary
  **/
 listOnlineUsers(params?: {limit?: number, offset?: number}, force?: boolean): Promise<User[]>;
