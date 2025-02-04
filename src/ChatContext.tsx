@@ -43,6 +43,9 @@ export const ChatProvider = ({
   const [users, setUsers, usersRef] = useStateRef<{
     [userId: number]: Users.User;
   }>({});
+  const [onlineUsers, setOnlineUsers, onlineUsersRef] = useStateRef<
+    Users.UsersResponse & Users.ListOnlineParams & {requested_at: number}
+  >({ users: [], limit: 100, offset: 0, requested_at: 0});
   const [selectedDialog, setSelectedDialog] = useState<
     Dialogs.Dialog | undefined
   >();
@@ -572,6 +575,27 @@ export const ChatProvider = ({
       .filter((user) => user.id !== parseInt(localStorage.userId));
   };
 
+  const listOnlineUsers = async (
+    params: Users.ListOnlineParams = { limit: 100, offset: 0 },
+    force: boolean = false
+  ): Promise<Users.User[]> => {
+    const isReady = Date.now() - onlineUsers.requested_at > 60000;
+    const isNewLimit = params.limit !== onlineUsers.limit;
+    const isNewOffset = params.offset !== onlineUsers.offset;
+    const isDifferentParams = isNewLimit || isNewOffset;
+    
+    if (isReady || isDifferentParams || force) {
+      try {
+        const {users} = await ConnectyCube.users.listOnline(params);
+        setOnlineUsers({ users, requested_at: Date.now() });
+      } catch (error) {
+        console.error("Failed to fetch online users", error);
+      }
+    }
+
+    return onlineUsersRef.current.users;
+  };
+
   const sendTypingStatus = (dialog?: Dialogs.Dialog) => {
     dialog ??= selectedDialog;
     if (!dialog) {
@@ -880,6 +904,7 @@ export const ChatProvider = ({
         markDialogAsRead,
         users,
         searchUsers,
+        listOnlineUsers,
         sendTypingStatus,
         typingStatus,
         sendMessageWithAttachment,
