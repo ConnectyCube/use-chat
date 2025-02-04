@@ -579,15 +579,15 @@ export const ChatProvider = ({
     params: Users.ListOnlineParams = { limit: 100, offset: 0 },
     force: boolean = false
   ): Promise<Users.User[]> => {
-    const isReady = Date.now() - onlineUsers.requested_at > 60000;
-    const isNewLimit = params.limit !== onlineUsers.limit;
-    const isNewOffset = params.offset !== onlineUsers.offset;
-    const isDifferentParams = isNewLimit || isNewOffset;
-    
+    const { limit, offset, requested_at } = onlineUsersRef.current
+    const currentTimestamp = Date.now();
+    const isReady = currentTimestamp - requested_at > 60000;
+    const isDifferentParams = params.limit !== limit || params.offset !== offset;
+
     if (isReady || isDifferentParams || force) {
       try {
         const {users} = await ConnectyCube.users.listOnline(params);
-        setOnlineUsers({ users, requested_at: Date.now() });
+        setOnlineUsers({ users, requested_at: currentTimestamp, ...params });
       } catch (error) {
         console.error("Failed to fetch online users", error);
       }
