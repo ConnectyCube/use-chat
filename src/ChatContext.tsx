@@ -43,6 +43,9 @@ export const ChatProvider = ({
   const [users, setUsers, usersRef] = useStateRef<{
     [userId: number]: Users.User;
   }>({});
+  const [onlineUsers, setOnlineUsers, onlineUsersRef] = useStateRef<
+    Users.UsersResponse & Users.ListOnlineParams & { requested_at: number }
+  >({ users: [], limit: 100, offset: 0, requested_at: 0 });
   const [selectedDialog, setSelectedDialog] = useState<
     Dialogs.Dialog | undefined
   >();
@@ -572,6 +575,28 @@ export const ChatProvider = ({
       .filter((user) => user.id !== parseInt(localStorage.userId));
   };
 
+  const listOnlineUsers = async (
+    params: Users.ListOnlineParams = { limit: 100, offset: 0 },
+    force: boolean = false
+  ): Promise<Users.User[]> => {
+    const { limit, offset, requested_at } = onlineUsersRef.current;
+    const currentTimestamp = Date.now();
+    const shouldRequest = currentTimestamp - requested_at > 60000;
+    const isDifferentParams =
+      params.limit !== limit || params.offset !== offset;
+
+    if (shouldRequest || isDifferentParams || force) {
+      try {
+        const { users } = await ConnectyCube.users.listOnline(params);
+        setOnlineUsers({ users, requested_at: currentTimestamp, ...params });
+      } catch (error) {
+        console.error("Failed to fetch online users", error);
+      }
+    }
+
+    return onlineUsersRef.current.users;
+  };
+
   const sendTypingStatus = (dialog?: Dialogs.Dialog) => {
     dialog ??= selectedDialog;
     if (!dialog) {
@@ -758,9 +783,7 @@ export const ChatProvider = ({
           });
           const dialog = result.items[0];
 
-          _retrieveAndStoreUsers(
-            dialog.occupants_ids.filter((id) => id !== currentUserIdRef.current)
-          );
+          _retrieveAndStoreUsers(dialog.occupants_ids);
 
           setDialogs((prevDialogs) => {
             return [dialog, ...prevDialogs];
@@ -880,6 +903,7 @@ export const ChatProvider = ({
         markDialogAsRead,
         users,
         searchUsers,
+        listOnlineUsers,
         sendTypingStatus,
         typingStatus,
         sendMessageWithAttachment,
