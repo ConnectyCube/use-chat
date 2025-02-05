@@ -783,9 +783,7 @@ export const ChatProvider = ({
           });
           const dialog = result.items[0];
 
-          _retrieveAndStoreUsers(
-            dialog.occupants_ids.filter((id) => id !== currentUserIdRef.current)
-          );
+          _retrieveAndStoreUsers(dialog.occupants_ids);
 
           setDialogs((prevDialogs) => {
             return [dialog, ...prevDialogs];
