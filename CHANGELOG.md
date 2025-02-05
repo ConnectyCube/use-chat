@@ -14,6 +14,10 @@
 listOnlineUsers(params?: {limit?: number, offset?: number}, force?: boolean): Promise<User[]>;
 ```
 
+### Bug fixes
+
+- current user id is missing in `users` when someone created a chat with you;
+
 ## 0.11.0
 
 ### Features
