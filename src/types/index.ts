@@ -21,6 +21,7 @@ export interface ChatContextType {
   selectedDialog?: Dialogs.Dialog;
   selectDialog: (dialog: Dialogs.Dialog) => Promise<void>;
   getDialogOpponentId: (dialog?: Dialogs.Dialog) => number | undefined;
+  unreadMessagesCount: UnreadMessagesCount;
   users: { [userId: number]: Users.User };
   getMessages: (dialogId: string) => Promise<Messages.Message[]>;
   messages: { [key: string]: Messages.Message[] };
@@ -44,6 +45,7 @@ export interface ChatContextType {
   lastActivity: { [userId: number]: string };
   lastMessageSentTimeString: (dialog: Dialogs.Dialog) => string;
   messageSentTimeString: (message: Messages.Message) => string;
+  processOnMessage: (fn: Chat.OnMessageListener) => void;
 }
 
 export interface FileAttachment {
@@ -58,3 +60,8 @@ export enum GroupChatEventType {
   REMOVE_PARTICIPANTS = "dialog/REMOVE_PARTICIPANTS",
   NEW_DIALOG = "dialog/NEW_DIALOG",
 }
+
+export type UnreadMessagesCount = {
+  total: number;
+  [dialogId: string]: number;
+};

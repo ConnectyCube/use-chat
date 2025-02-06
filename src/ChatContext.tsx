@@ -4,6 +4,7 @@ import {
   ChatProviderType,
   FileAttachment,
   GroupChatEventType,
+  UnreadMessagesCount,
 } from "./types";
 import {
   Chat,
@@ -32,7 +33,7 @@ export const useChat = (): ChatContextType => {
 export const ChatProvider = ({
   children,
 }: ChatProviderType): React.ReactElement => {
-  const [isOnline, setIsOnline, isOnlineRef] = useStateRef<boolean>(
+  const [isOnline, setIsOnline, _isOnlineRef] = useStateRef<boolean>(
     navigator.onLine
   );
   const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<
@@ -40,10 +41,11 @@ export const ChatProvider = ({
   >();
   const [isConnected, setIsConnected] = useState(false);
   const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState<UnreadMessagesCount>({total: 0});
   const [users, setUsers, usersRef] = useStateRef<{
     [userId: number]: Users.User;
   }>({});
-  const [onlineUsers, setOnlineUsers, onlineUsersRef] = useStateRef<
+  const [_onlineUsers, setOnlineUsers, onlineUsersRef] = useStateRef<
     Users.UsersResponse & Users.ListOnlineParams & {requested_at: number}
   >({ users: [], limit: 100, offset: 0, requested_at: 0});
   const [selectedDialog, setSelectedDialog] = useState<
@@ -58,10 +60,11 @@ export const ChatProvider = ({
   const [typingStatus, setTypingStatus] = useState<{
     [dialogId: string]: { [userId: string]: boolean };
   }>({});
-  const [activatedDialogs, setActivatedDialogs] = useStateRef<{
+  const [activatedDialogs, setActivatedDialogs, _activatedDialogsRef] = useStateRef<{
     [dialogId: string]: boolean;
   }>({});
   const typingTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
 
   const connect = async (credentials: Chat.ConnectionParams) => {
     try {
@@ -210,6 +213,19 @@ export const ChatProvider = ({
     })[0];
 
     return opponentId;
+  };
+
+  const _updateUnreadMessagesCount = () => {
+    const count: UnreadMessagesCount = { total: 0 };
+
+    dialogs.forEach(({_id, unread_messages_count = 0}: Dialogs.Dialog) => {
+      if (_id !== selectedDialog?._id) {
+        count[_id] = unread_messages_count;
+        count.total += unread_messages_count;
+      }
+    });
+
+    setUnreadMessagesCount(count);
   };
 
   const _findDialog = (dialogId: string): Dialogs.Dialog => {
@@ -674,6 +690,10 @@ export const ChatProvider = ({
     });
   };
 
+  const processOnMessage = (callbackFn: Chat.OnMessageListener) => {
+    onMessageRef.current = callbackFn;
+  };
+
   // Internet listeners
   useEffect(() => {
     const abortController1 = new AbortController();
@@ -760,6 +780,10 @@ export const ChatProvider = ({
 
         return [...prevDialogs];
       });
+
+      if (onMessageRef.current) {
+        onMessageRef.current(userId, message);
+      }
     };
 
     ConnectyCube.chat.onSystemMessageListener = async (
@@ -883,6 +907,10 @@ export const ChatProvider = ({
     };
   }, []);
 
+  useEffect(() => {
+    _updateUnreadMessagesCount();
+  }, [dialogs]);
+
   return (
     <ChatContext.Provider
       value={{
@@ -896,6 +924,7 @@ export const ChatProvider = ({
         selectDialog,
         selectedDialog,
         getDialogOpponentId,
+        unreadMessagesCount,
         getMessages,
         messages,
         sendMessage,
@@ -916,6 +945,7 @@ export const ChatProvider = ({
         readMessage,
         lastMessageSentTimeString,
         messageSentTimeString,
+        processOnMessage,
       }}
     >
       {children}
