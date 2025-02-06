@@ -15,14 +15,6 @@ processOnMessage((userId: number, message: Chat.Message): void => {
 });
 ```
 
-```typescript
-/**
- * Retrieves online users no more frequently than once per minute with the same parameters
- * Use the 'force' option to bypass this limitation if necessary
- **/
-listOnlineUsers(params?: {limit?: number, offset?: number}, force?: boolean): Promise<User[]>;
-```
-
 ## 0.12.0
 
 ### Features
@@ -36,6 +28,10 @@ listOnlineUsers(params?: {limit?: number, offset?: number}, force?: boolean): Pr
  **/
 listOnlineUsers(params?: {limit?: number, offset?: number}, force?: boolean): Promise<User[]>;
 ```
+
+### Bug fixes
+
+- current user id is missing in `users` when someone created a chat with you;
 
 ## 0.11.0
 
