@@ -41,13 +41,14 @@ export const ChatProvider = ({
   >();
   const [isConnected, setIsConnected] = useState(false);
   const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
-  const [unreadMessagesCount, setUnreadMessagesCount] = useState<UnreadMessagesCount>({total: 0});
+  const [unreadMessagesCount, setUnreadMessagesCount] =
+    useState<UnreadMessagesCount>({ total: 0 });
   const [users, setUsers, usersRef] = useStateRef<{
     [userId: number]: Users.User;
   }>({});
   const [_onlineUsers, setOnlineUsers, onlineUsersRef] = useStateRef<
-    Users.UsersResponse & Users.ListOnlineParams & {requested_at: number}
-  >({ users: [], limit: 100, offset: 0, requested_at: 0});
+    Users.UsersResponse & Users.ListOnlineParams & { requested_at: number }
+  >({ users: [], limit: 100, offset: 0, requested_at: 0 });
   const [selectedDialog, setSelectedDialog] = useState<
     Dialogs.Dialog | undefined
   >();
@@ -60,9 +61,10 @@ export const ChatProvider = ({
   const [typingStatus, setTypingStatus] = useState<{
     [dialogId: string]: { [userId: string]: boolean };
   }>({});
-  const [activatedDialogs, setActivatedDialogs, _activatedDialogsRef] = useStateRef<{
-    [dialogId: string]: boolean;
-  }>({});
+  const [activatedDialogs, setActivatedDialogs, _activatedDialogsRef] =
+    useStateRef<{
+      [dialogId: string]: boolean;
+    }>({});
   const typingTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
 
@@ -218,7 +220,7 @@ export const ChatProvider = ({
   const _updateUnreadMessagesCount = () => {
     const count: UnreadMessagesCount = { total: 0 };
 
-    dialogs.forEach(({_id, unread_messages_count = 0}: Dialogs.Dialog) => {
+    dialogs.forEach(({ _id, unread_messages_count = 0 }: Dialogs.Dialog) => {
       if (_id !== selectedDialog?._id) {
         count[_id] = unread_messages_count;
         count.total += unread_messages_count;
