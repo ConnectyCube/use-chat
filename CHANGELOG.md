@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.13.0
+
+### Features
+
+- Introduced `unreadMessagesCount` object to retrieve total unread messages count (`unreadMessagesCount.total`) or by dialog ID (`unreadMessagesCount[dialog._id]`);
+- Added `processOnMessage` function to process needed actions on any incoming messages from other users.
+
+```typescript
+const {processOnMessage} = useChat()
+
+processOnMessage((userId: number, message: Chat.Message): void => {
+  playIncomingSound() // for example
+});
+```
+
 ## 0.12.0
 
 ### Features
