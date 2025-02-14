@@ -135,18 +135,32 @@ export const ChatProvider = ({
     const result = await ConnectyCube.chat.dialog.list(filters);
 
     // store dialogs
-    setDialogs(
-      result.items.sort((a, b) => {
-        const dateA =
-          _parseDate(a.last_message_date_sent) ||
-          (_parseDate(a.created_at) as number);
-        const dateB =
-          _parseDate(b.last_message_date_sent) ||
-          (_parseDate(b.created_at) as number);
+    setDialogs(() => {
+      // Merge the two arrays
+      const merged = [...dialogs, ...result.items];
+      // Create a map keyed by dialog.id (replace 'id' with the unique key property of your dialogs)
+      const uniqueDialogsMap = new Map();
+      merged.forEach((dialog) => {
+        uniqueDialogsMap.set(dialog._id, dialog);
+      });
+      // Convert the map values back to an array and sort it
+      const uniqueDialogs = Array.from(uniqueDialogsMap.values()).sort(
+        (a, b) => {
+          const dateA =
+            _parseDate(a.last_message_date_sent) ||
+            _parseDate(a.created_at) ||
+            0;
+          const dateB =
+            _parseDate(b.last_message_date_sent) ||
+            _parseDate(b.created_at) ||
+            0;
 
-        return dateB - dateA; // Sort in ascending order
-      })
-    );
+          return dateB - dateA; // Sort in descending order (most recent first)
+        }
+      );
+
+      return uniqueDialogs;
+    });
 
     // store users
     const usersIds = Array.from(
