@@ -12,10 +12,7 @@ export interface ChatContextType {
   disconnect: () => void;
   currentUserId?: number;
   createChat: (userId: number) => Promise<Dialogs.Dialog>;
-  createGroupChat: (
-    usersIds: number[],
-    chatName: string
-  ) => Promise<Dialogs.Dialog>;
+  createGroupChat: (usersIds: number[], chatName: string) => Promise<Dialogs.Dialog>;
   getDialogs: (filters?: Dialogs.ListParams) => Promise<Dialogs.Dialog[]>;
   dialogs: Dialogs.Dialog[];
   selectedDialog?: Dialogs.Dialog;
@@ -30,10 +27,7 @@ export interface ChatContextType {
   removeUsersFromGroupChat: (usersIds: number[]) => Promise<void>;
   leaveGroupChat: () => Promise<void>;
   sendMessage: (body: string, dialog?: Dialogs.Dialog) => void;
-  sendMessageWithAttachment: (
-    file: File,
-    dialog?: Dialogs.Dialog
-  ) => Promise<void>;
+  sendMessageWithAttachment: (files: File[], dialog?: Dialogs.Dialog) => Promise<void>;
   readMessage: (messageId: string, userId: number, dialogId: string) => void;
   searchUsers: (term: string) => Promise<Users.User[]>;
   listOnlineUsers: (params?: Users.ListOnlineParams, force?: boolean) => Promise<Users.User[]>;
@@ -46,11 +40,6 @@ export interface ChatContextType {
   lastMessageSentTimeString: (dialog: Dialogs.Dialog) => string;
   messageSentTimeString: (message: Messages.Message) => string;
   processOnMessage: (fn: Chat.OnMessageListener) => void;
-}
-
-export interface FileAttachment {
-  uid: string;
-  type: string;
 }
 
 export enum GroupChatEventType {

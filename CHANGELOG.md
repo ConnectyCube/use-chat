@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.0
+
+### Features
+
+- `sendMessageWithAttachment` now sends an array of attachments. Retrieve the attachment URL from `message.attachments[index].url` instead of `message.fileUrl[0]`;
+
+### Bug fixes
+
+- Chats duplication in `getDialogs`.
+
 ## 0.13.0
 
 ### Features
@@ -8,10 +18,10 @@
 - Added `processOnMessage` function to process needed actions on any incoming messages from other users.
 
 ```typescript
-const {processOnMessage} = useChat()
+const { processOnMessage } = useChat();
 
 processOnMessage((userId: number, message: Chat.Message): void => {
-  playIncomingSound() // for example
+  playIncomingSound(); // for example
 });
 ```
 
