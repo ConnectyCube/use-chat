@@ -316,7 +316,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     const opponentId = getDialogOpponentId(dialog);
     const tempId = Date.now() + "";
     const attachments = files.map((file, index) => ({
-      uid: file.name ?? `local:${tempId}#${index}`, // just for temporary
+      uid: `local:${tempId}#${index}`, // just for temporary
       type: file.type,
       url: URL.createObjectURL(file),
     }));
