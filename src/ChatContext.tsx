@@ -1,17 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import {
-  ChatContextType,
-  ChatProviderType,
-  GroupChatEventType,
-  UnreadMessagesCount,
-} from "./types";
-import {
-  Chat,
-  DateOrTimestamp,
-  Dialogs,
-  Messages,
-  Users,
-} from "connectycube/dist/types/types";
+import { ChatContextType, ChatProviderType, GroupChatEventType, UnreadMessagesCount } from "./types";
+import { Chat, DateOrTimestamp, Dialogs, Messages, Users } from "connectycube/dist/types/types";
 import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
 import { formatDistanceToNow } from "date-fns";
@@ -29,28 +18,19 @@ export const useChat = (): ChatContextType => {
   return context;
 };
 
-export const ChatProvider = ({
-  children,
-}: ChatProviderType): React.ReactElement => {
-  const [isOnline, setIsOnline, _isOnlineRef] = useStateRef<boolean>(
-    navigator.onLine
-  );
-  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<
-    number | undefined
-  >();
+export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement => {
+  const [isOnline, setIsOnline, _isOnlineRef] = useStateRef<boolean>(navigator.onLine);
+  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
   const [isConnected, setIsConnected] = useState(false);
   const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
-  const [unreadMessagesCount, setUnreadMessagesCount] =
-    useState<UnreadMessagesCount>({ total: 0 });
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState<UnreadMessagesCount>({ total: 0 });
   const [users, setUsers, usersRef] = useStateRef<{
     [userId: number]: Users.User;
   }>({});
   const [_onlineUsers, setOnlineUsers, onlineUsersRef] = useStateRef<
     Users.UsersResponse & Users.ListOnlineParams & { requested_at: number }
   >({ users: [], limit: 100, offset: 0, requested_at: 0 });
-  const [selectedDialog, setSelectedDialog] = useState<
-    Dialogs.Dialog | undefined
-  >();
+  const [selectedDialog, setSelectedDialog] = useState<Dialogs.Dialog | undefined>();
   const [messages, setMessages, messagesRef] = useStateRef<{
     [dialogId: string]: Messages.Message[];
   }>({});
@@ -60,10 +40,9 @@ export const ChatProvider = ({
   const [typingStatus, setTypingStatus] = useState<{
     [dialogId: string]: { [userId: string]: boolean };
   }>({});
-  const [activatedDialogs, setActivatedDialogs, _activatedDialogsRef] =
-    useStateRef<{
-      [dialogId: string]: boolean;
-    }>({});
+  const [activatedDialogs, setActivatedDialogs, _activatedDialogsRef] = useStateRef<{
+    [dialogId: string]: boolean;
+  }>({});
   const typingTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
 
@@ -104,10 +83,7 @@ export const ChatProvider = ({
     return newDialog;
   };
 
-  const createGroupChat = async (
-    usersIds: number[],
-    chatName: string
-  ): Promise<Dialogs.Dialog> => {
+  const createGroupChat = async (usersIds: number[], chatName: string): Promise<Dialogs.Dialog> => {
     const params = {
       type: 2,
       name: chatName,
@@ -127,30 +103,22 @@ export const ChatProvider = ({
     return dialog;
   };
 
-  const getDialogs = async (
-    filters?: Dialogs.ListParams
-  ): Promise<Dialogs.Dialog[]> => {
+  const getDialogs = async (filters?: Dialogs.ListParams): Promise<Dialogs.Dialog[]> => {
     // fetch chats
     const result = await ConnectyCube.chat.dialog.list(filters);
 
     // store dialogs
     setDialogs(
       result.items.sort((a, b) => {
-        const dateA =
-          _parseDate(a.last_message_date_sent) ||
-          (_parseDate(a.created_at) as number);
-        const dateB =
-          _parseDate(b.last_message_date_sent) ||
-          (_parseDate(b.created_at) as number);
+        const dateA = _parseDate(a.last_message_date_sent) || (_parseDate(a.created_at) as number);
+        const dateB = _parseDate(b.last_message_date_sent) || (_parseDate(b.created_at) as number);
 
         return dateB - dateA; // Sort in ascending order
-      })
+      }),
     );
 
     // store users
-    const usersIds = Array.from(
-      new Set(result.items.flatMap((dialog) => dialog.occupants_ids))
-    );
+    const usersIds = Array.from(new Set(result.items.flatMap((dialog) => dialog.occupants_ids)));
     _retrieveAndStoreUsers(usersIds);
 
     return result.items;
@@ -171,8 +139,10 @@ export const ChatProvider = ({
         return a._id.toString().localeCompare(b._id.toString()); // revers sort
       })
       .map((msg) => {
-        const attachments = msg.attachments?.map((attachment) =>
-          ({...attachment, url: ConnectyCube.storage.privateUrl(attachment.uid)}));
+        const attachments = msg.attachments?.map((attachment) => ({
+          ...attachment,
+          url: ConnectyCube.storage.privateUrl(attachment.uid),
+        }));
         return { ...msg, attachments };
       });
     setMessages({ ...messages, [dialogId]: retrievedMessages });
@@ -269,16 +239,12 @@ export const ChatProvider = ({
     _retrieveAndStoreUsers(usersIds);
     //
     const updatedDialog = _findDialog(selectedDialog._id);
-    updatedDialog.occupants_ids = Array.from(
-      new Set([...updatedDialog.occupants_ids, ...usersIds])
-    );
+    updatedDialog.occupants_ids = Array.from(new Set([...updatedDialog.occupants_ids, ...usersIds]));
     setSelectedDialog({ ...updatedDialog });
     setDialogs([...dialogs]);
   };
 
-  const removeUsersFromGroupChat = async (
-    usersIds: number[]
-  ): Promise<void> => {
+  const removeUsersFromGroupChat = async (usersIds: number[]): Promise<void> => {
     if (!selectedDialog) {
       throw new Error("No dialog selected");
     }
@@ -305,9 +271,7 @@ export const ChatProvider = ({
 
     // update store
     const updatedDialog = _findDialog(selectedDialog._id);
-    updatedDialog.occupants_ids = updatedDialog.occupants_ids.filter(
-      (userId) => !usersIds.includes(userId)
-    );
+    updatedDialog.occupants_ids = updatedDialog.occupants_ids.filter((userId) => !usersIds.includes(userId));
     setSelectedDialog({ ...updatedDialog });
     setDialogs([...dialogs]);
   };
@@ -323,11 +287,7 @@ export const ChatProvider = ({
     selectedDialog.occupants_ids
       .filter((userId) => userId !== currentUserId)
       .forEach((userId) => {
-        _notifyUsers(
-          GroupChatEventType.REMOVED_FROM_DIALOG,
-          selectedDialog._id,
-          userId
-        );
+        _notifyUsers(GroupChatEventType.REMOVED_FROM_DIALOG, selectedDialog._id, userId);
       });
 
     setDialogs(dialogs.filter((dialog) => dialog._id !== selectedDialog._id));
@@ -344,19 +304,10 @@ export const ChatProvider = ({
     const messageId = _sendMessage(body, null, dialog, opponentId);
 
     // add message to store
-    _addMessageToStore(
-      messageId,
-      body,
-      dialog._id,
-      currentUserId as number,
-      opponentId
-    );
+    _addMessageToStore(messageId, body, dialog._id, currentUserId as number, opponentId);
   };
 
-  const sendMessageWithAttachment = async (
-    files: File[],
-    dialog?: Dialogs.Dialog
-  ): Promise<void> => {
+  const sendMessageWithAttachment = async (files: File[], dialog?: Dialogs.Dialog): Promise<void> => {
     dialog ??= selectedDialog;
     if (!dialog) {
       throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
@@ -378,7 +329,7 @@ export const ChatProvider = ({
       currentUserId as number,
       opponentId,
       attachments,
-      true
+      true,
     );
 
     // upload files to cloud
@@ -394,21 +345,17 @@ export const ChatProvider = ({
     });
 
     const uploadedFilesResults = await Promise.all(uploadFilesPromises);
-    const uploadedAttachments = uploadedFilesResults.map(({uid, type}) =>
-      ({ uid, type, url: ConnectyCube.storage.privateUrl(uid) }));
+    const uploadedAttachments = uploadedFilesResults.map(({ uid, type }) => ({
+      uid,
+      type,
+      url: ConnectyCube.storage.privateUrl(uid),
+    }));
 
     // send
-    const messageId = _sendMessage(
-      "Attachment",
-      uploadedAttachments,
-      dialog,
-      opponentId
-    );
+    const messageId = _sendMessage("Attachment", uploadedAttachments, dialog, opponentId);
 
     // update message in store (update it and file url)
-    const msg = messagesRef.current[dialog._id].find(
-      (msg) => msg._id === tempId
-    ) as Messages.Message;
+    const msg = messagesRef.current[dialog._id].find((msg) => msg._id === tempId) as Messages.Message;
     msg._id = messageId;
     msg.attachments = attachments;
     msg.isLoading = false;
@@ -419,7 +366,7 @@ export const ChatProvider = ({
     body: string,
     attachments: Messages.Attachment[] | null,
     dialog: Dialogs.Dialog,
-    opponentId?: number
+    opponentId?: number,
   ): string => {
     // send message
     const messageParams: Chat.MessageParams = {
@@ -433,10 +380,7 @@ export const ChatProvider = ({
     if (attachments) {
       messageParams.extension.attachments = attachments;
     }
-    const messageId = ConnectyCube.chat.send(
-      dialog.type === 3 ? (opponentId as number) : dialog._id,
-      messageParams
-    );
+    const messageId = ConnectyCube.chat.send(dialog.type === 3 ? (opponentId as number) : dialog._id, messageParams);
 
     return messageId;
   };
@@ -448,7 +392,7 @@ export const ChatProvider = ({
     senderId: number,
     recipientId?: number,
     attachments?: Messages.Attachment[],
-    isLoading?: boolean
+    isLoading?: boolean,
   ) => {
     const ts = Math.round(new Date().getTime() / 1000);
 
@@ -459,15 +403,11 @@ export const ChatProvider = ({
     dialog.last_message_date_sent = ts;
     setDialogs(
       [...dialogsRef.current].sort((a, b) => {
-        const dateA =
-          _parseDate(a.last_message_date_sent) ||
-          (_parseDate(a.created_at) as number);
-        const dateB =
-          _parseDate(b.last_message_date_sent) ||
-          (_parseDate(b.created_at) as number);
+        const dateA = _parseDate(a.last_message_date_sent) || (_parseDate(a.created_at) as number);
+        const dateB = _parseDate(b.last_message_date_sent) || (_parseDate(b.created_at) as number);
 
         return dateB - dateA; // Sort in ascending order
-      })
+      }),
     );
 
     setMessages({
@@ -517,9 +457,7 @@ export const ChatProvider = ({
         message.read = 1;
         const dialog = _findDialog(dialogId);
         if (dialog) {
-          dialog.unread_messages_count >= 1
-            ? dialog.unread_messages_count--
-            : 0;
+          dialog.unread_messages_count >= 1 ? dialog.unread_messages_count-- : 0;
         }
 
         setDialogs([...dialogs]);
@@ -537,24 +475,16 @@ export const ChatProvider = ({
       };
       const result = await ConnectyCube.users.getV2(params);
 
-      const usersIdsMap = result.items.reduce<{ [key: number]: Users.User }>(
-        (map, user) => {
-          map[user.id] = user;
-          return map;
-        },
-        {}
-      );
+      const usersIdsMap = result.items.reduce<{ [key: number]: Users.User }>((map, user) => {
+        map[user.id] = user;
+        return map;
+      }, {});
 
       setUsers({ ...usersRef.current, ...usersIdsMap });
     }
   };
 
-  const _notifyUsers = (
-    command: string,
-    dialogId: string,
-    userId: number,
-    params: any = {}
-  ) => {
+  const _notifyUsers = (command: string, dialogId: string, userId: number, params: any = {}) => {
     const msg = {
       body: command,
       extension: {
@@ -573,35 +503,28 @@ export const ChatProvider = ({
       full_name: { start_with: term },
       limit: 100,
     });
-    users.push(
-      ...usersWithFullName.items.filter((user) => user.id !== currentUserId)
-    );
+    users.push(...usersWithFullName.items.filter((user) => user.id !== currentUserId));
 
     const usersWithLogin = await ConnectyCube.users.getV2({
       login: { start_with: term },
       limit: 100,
     });
-    users.push(
-      ...usersWithLogin.items.filter((user) => user.id !== currentUserId)
-    );
+    users.push(...usersWithLogin.items.filter((user) => user.id !== currentUserId));
 
     // remove duplicates and current user for search
     return users
-      .filter(
-        (user, ind) => ind === users.findIndex((elem) => elem.id === user.id)
-      )
+      .filter((user, ind) => ind === users.findIndex((elem) => elem.id === user.id))
       .filter((user) => user.id !== parseInt(localStorage.userId));
   };
 
   const listOnlineUsers = async (
     params: Users.ListOnlineParams = { limit: 100, offset: 0 },
-    force: boolean = false
+    force: boolean = false,
   ): Promise<Users.User[]> => {
     const { limit, offset, requested_at } = onlineUsersRef.current;
     const currentTimestamp = Date.now();
     const shouldRequest = currentTimestamp - requested_at > 60000;
-    const isDifferentParams =
-      params.limit !== limit || params.offset !== offset;
+    const isDifferentParams = params.limit !== limit || params.offset !== offset;
 
     if (shouldRequest || isDifferentParams || force) {
       try {
@@ -621,9 +544,7 @@ export const ChatProvider = ({
       throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
     }
 
-    ConnectyCube.chat.sendIsTypingStatus(
-      dialog.type === 3 ? (getDialogOpponentId(dialog) as number) : dialog._id
-    );
+    ConnectyCube.chat.sendIsTypingStatus(dialog.type === 3 ? (getDialogOpponentId(dialog) as number) : dialog._id);
   };
 
   const getLastActivity = async (userId: number): Promise<string> => {
@@ -647,9 +568,7 @@ export const ChatProvider = ({
           const day = lastLoggedInTime.getUTCDate();
           const month = lastLoggedInTime.getMonth() + 1;
           const year = lastLoggedInTime.getFullYear();
-          status = `Last seen ${day}/${month
-            .toString()
-            .padStart(2, "0")}/${year}`;
+          status = `Last seen ${day}/${month.toString().padStart(2, "0")}/${year}`;
         } else {
           status = `Last seen ${hoursAgo} hours ago`;
         }
@@ -679,12 +598,10 @@ export const ChatProvider = ({
 
   const lastMessageSentTimeString = (dialog: Dialogs.Dialog): string => {
     return formatDistanceToNow(
-      dialog.last_message_date_sent
-        ? (dialog.last_message_date_sent as number) * 1000
-        : (dialog.created_at as string),
+      dialog.last_message_date_sent ? (dialog.last_message_date_sent as number) * 1000 : (dialog.created_at as string),
       {
         addSuffix: true,
-      }
+      },
     );
   };
   const messageSentTimeString = (message: Messages.Message): string => {
@@ -709,7 +626,7 @@ export const ChatProvider = ({
       },
       {
         signal: abortController1.signal,
-      }
+      },
     );
     window.addEventListener(
       "offline",
@@ -719,7 +636,7 @@ export const ChatProvider = ({
       },
       {
         signal: abortController2.signal,
-      }
+      },
     );
 
     return () => {
@@ -736,10 +653,7 @@ export const ChatProvider = ({
 
     // ConnectyCube.chat.onReconnectListener = () => {};
 
-    ConnectyCube.chat.onMessageListener = (
-      userId: number,
-      message: Chat.Message
-    ) => {
+    ConnectyCube.chat.onMessageListener = (userId: number, message: Chat.Message) => {
       // TODO: handle multi-device
       if (userId === currentUserIdRef.current) {
         return;
@@ -748,35 +662,27 @@ export const ChatProvider = ({
       const dialogId = message.dialog_id as string;
       const messageId = message.id;
       const body = message.body || "";
-      const opponentId =
-        message.type === "chat"
-          ? (currentUserIdRef.current as number)
-          : undefined;
+      const opponentId = message.type === "chat" ? (currentUserIdRef.current as number) : undefined;
 
       _stopTyping(userId, dialogId);
 
-      const attachments = message.extension.attachments?.length > 0
-        ? message.extension.attachments.map((attachment: Messages.Attachment) =>
-          ({...attachment, url: ConnectyCube.storage.privateUrl(attachment.uid)}))
-        : undefined;
+      const attachments =
+        message.extension.attachments?.length > 0
+          ? message.extension.attachments.map((attachment: Messages.Attachment) => ({
+              ...attachment,
+              url: ConnectyCube.storage.privateUrl(attachment.uid),
+            }))
+          : undefined;
 
       // add message to store
-      _addMessageToStore(
-        messageId,
-        body,
-        dialogId,
-        userId,
-        opponentId,
-        attachments,
-      );
+      _addMessageToStore(messageId, body, dialogId, userId, opponentId, attachments);
 
       // updates chats store
       setDialogs((prevDialogs) => {
         const dialog = _findDialog(dialogId);
 
         if (!selectedDialog || selectedDialog._id !== message.dialog_id) {
-          dialog.unread_messages_count =
-            (dialog.unread_messages_count || 0) + 1;
+          dialog.unread_messages_count = (dialog.unread_messages_count || 0) + 1;
         }
         dialog.last_message = message.body;
         dialog.last_message_date_sent = parseInt(message.extension.date_sent);
@@ -789,9 +695,7 @@ export const ChatProvider = ({
       }
     };
 
-    ConnectyCube.chat.onSystemMessageListener = async (
-      message: Chat.SystemMessage
-    ) => {
+    ConnectyCube.chat.onSystemMessageListener = async (message: Chat.SystemMessage) => {
       const dialogId = message.extension.dialogId;
       const senderId = message.userId;
 
@@ -819,9 +723,7 @@ export const ChatProvider = ({
         }
         // when someone added new participants to the chat
         case GroupChatEventType.ADD_PARTICIPANTS: {
-          const usersIds = message.extension.addedParticipantsIds
-            .split(",")
-            .map(Number);
+          const usersIds = message.extension.addedParticipantsIds.split(",").map(Number);
           _retrieveAndStoreUsers(usersIds);
           const dialog = _findDialog(dialogId);
 
@@ -833,9 +735,7 @@ export const ChatProvider = ({
         }
         // when someone removed participants from chat
         case GroupChatEventType.REMOVE_PARTICIPANTS: {
-          const usersIds = message.extension.removedParticipantsIds
-            .split(",")
-            .map(Number);
+          const usersIds = message.extension.removedParticipantsIds.split(",").map(Number);
           const dialog = _findDialog(dialogId);
 
           setDialogs((prevDialogs) => {
@@ -862,11 +762,7 @@ export const ChatProvider = ({
       }
     };
 
-    ConnectyCube.chat.onReadStatusListener = (
-      messageId: string,
-      dialogId: string,
-      userId: number
-    ) => {
+    ConnectyCube.chat.onReadStatusListener = (messageId: string, dialogId: string, userId: number) => {
       // TODO: handle multi-device
       if (userId === currentUserIdRef.current) {
         return;
@@ -883,11 +779,7 @@ export const ChatProvider = ({
       });
     };
 
-    ConnectyCube.chat.onMessageTypingListener = (
-      isTyping: boolean,
-      userId: number,
-      dialogId: string
-    ) => {
+    ConnectyCube.chat.onMessageTypingListener = (isTyping: boolean, userId: number, dialogId: string) => {
       // TODO: handle multi-device
       if (userId === currentUserIdRef.current) {
         return;
