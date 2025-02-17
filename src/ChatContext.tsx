@@ -322,15 +322,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }));
 
     // add message to store
-    _addMessageToStore(
-      tempId,
-      "Attachment", // file.type,
-      dialog._id,
-      currentUserId as number,
-      opponentId,
-      attachments,
-      true,
-    );
+    _addMessageToStore(tempId, "Attachment", dialog._id, currentUserId as number, opponentId, attachments, true);
 
     // upload files to cloud
     const uploadFilesPromises = files.map((file) => {
