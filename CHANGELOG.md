@@ -14,10 +14,10 @@
 - Added `processOnMessage` function to process needed actions on any incoming messages from other users.
 
 ```typescript
-const {processOnMessage} = useChat()
+const { processOnMessage } = useChat();
 
 processOnMessage((userId: number, message: Chat.Message): void => {
-  playIncomingSound() // for example
+  playIncomingSound(); // for example
 });
 ```
 
