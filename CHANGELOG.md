@@ -4,7 +4,11 @@
 
 ### Features
 
-- `sendMessageWithAttachment` now sends an array of attachments. Retrieve the attachment URL from `message.attachments[index].url` instead of `message.fileUrl[0]`.
+- `sendMessageWithAttachment` now sends an array of attachments. Retrieve the attachment URL from `message.attachments[index].url` instead of `message.fileUrl[0]`;
+
+### Bug fixes
+
+- chats duplication in `getDialogs`.
 
 ## 0.13.0
 
