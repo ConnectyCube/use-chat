@@ -8,7 +8,7 @@
 
 ### Bug fixes
 
-- chats duplication in `getDialogs`.
+- Chats duplication in `getDialogs`.
 
 ## 0.13.0
 
