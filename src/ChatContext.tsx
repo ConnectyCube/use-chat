@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   ChatContextType,
   ChatProviderType,
-  FileAttachment,
   GroupChatEventType,
   UnreadMessagesCount,
 } from "./types";
@@ -170,12 +169,9 @@ export const ChatProvider = ({
         return a._id.toString().localeCompare(b._id.toString()); // revers sort
       })
       .map((msg) => {
-        const attachmentsUrls = msg.attachments?.map((attachment) => {
-          const fileUrl = ConnectyCube.storage.privateUrl(attachment.uid);
-          return fileUrl;
-        });
-
-        return { ...msg, attachmentsUrls };
+        const attachments = msg.attachments?.map((attachment) =>
+          ({...attachment, url: ConnectyCube.storage.privateUrl(attachment.uid)}));
+        return { ...msg, attachments };
       });
     setMessages({ ...messages, [dialogId]: retrievedMessages });
 
@@ -356,7 +352,7 @@ export const ChatProvider = ({
   };
 
   const sendMessageWithAttachment = async (
-    file: File,
+    files: File[],
     dialog?: Dialogs.Dialog
   ): Promise<void> => {
     dialog ??= selectedDialog;
@@ -365,54 +361,61 @@ export const ChatProvider = ({
     }
 
     const opponentId = getDialogOpponentId(dialog);
-
     const tempId = Date.now() + "";
+    const attachments = files.map((file, index) => ({
+      uid: file.name ?? `local:${tempId}#${index}`, // just for temporary
+      type: file.type,
+      url: URL.createObjectURL(file),
+    }));
 
     // add message to store
-    const localUrl = URL.createObjectURL(file);
     _addMessageToStore(
       tempId,
-      "Attachment", //file.type,
+      "Attachment", // file.type,
       dialog._id,
       currentUserId as number,
       opponentId,
-      localUrl,
+      attachments,
       true
     );
 
-    // upload file to cloud
-    const fileParams = {
-      name: file.name,
-      file: file,
-      type: file.type,
-      size: file.size,
-      public: false,
-    };
-    const result = await ConnectyCube.storage.createAndUpload(fileParams);
+    // upload files to cloud
+    const uploadFilesPromises = files.map((file) => {
+      const fileParams = {
+        file: file,
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        public: false,
+      };
+      return ConnectyCube.storage.createAndUpload(fileParams);
+    });
+
+    const uploadedFilesResults = await Promise.all(uploadFilesPromises);
+    const uploadedAttachments = uploadedFilesResults.map(({uid, type}) =>
+      ({ uid, type, url: ConnectyCube.storage.privateUrl(uid) }));
 
     // send
     const messageId = _sendMessage(
       "Attachment",
-      { uid: result.uid as string, type: file.type },
+      uploadedAttachments,
       dialog,
       opponentId
     );
-
-    const fileUrl = ConnectyCube.storage.privateUrl(result.uid);
 
     // update message in store (update it and file url)
     const msg = messagesRef.current[dialog._id].find(
       (msg) => msg._id === tempId
     ) as Messages.Message;
     msg._id = messageId;
-    msg.attachmentsUrls = [fileUrl];
+    msg.attachments = attachments;
     msg.isLoading = false;
     setMessages({ ...messagesRef.current });
   };
 
   const _sendMessage = (
     body: string,
-    fileParams: FileAttachment | null,
+    attachments: Messages.Attachment[] | null,
     dialog: Dialogs.Dialog,
     opponentId?: number
   ): string => {
@@ -425,10 +428,8 @@ export const ChatProvider = ({
         dialog_id: dialog._id,
       },
     };
-    if (fileParams) {
-      messageParams.extension.attachments = [
-        { uid: fileParams.uid, type: fileParams.type },
-      ];
+    if (attachments) {
+      messageParams.extension.attachments = attachments;
     }
     const messageId = ConnectyCube.chat.send(
       dialog.type === 3 ? (opponentId as number) : dialog._id,
@@ -444,7 +445,7 @@ export const ChatProvider = ({
     dialogId: string,
     senderId: number,
     recipientId?: number,
-    fileUrl?: string,
+    attachments?: Messages.Attachment[],
     isLoading?: boolean
   ) => {
     const ts = Math.round(new Date().getTime() / 1000);
@@ -484,8 +485,7 @@ export const ChatProvider = ({
           read_ids: [senderId],
           delivered_ids: [senderId],
           views_count: 0,
-          attachments: [],
-          attachmentsUrls: fileUrl ? [fileUrl] : [],
+          attachments: attachments ? attachments : [],
           reactions: {} as any,
           isLoading,
         },
@@ -753,19 +753,19 @@ export const ChatProvider = ({
 
       _stopTyping(userId, dialogId);
 
+      const attachments = message.extension.attachments?.length > 0
+        ? message.extension.attachments.map((attachment: Messages.Attachment) =>
+          ({...attachment, url: ConnectyCube.storage.privateUrl(attachment.uid)}))
+        : undefined;
+
       // add message to store
-      let fileUrl;
-      if (message.extension.attachments?.length > 0) {
-        const fileUID = message.extension.attachments[0].uid;
-        fileUrl = ConnectyCube.storage.privateUrl(fileUID);
-      }
       _addMessageToStore(
         messageId,
         body,
         dialogId,
         userId,
         opponentId,
-        fileUrl
+        attachments,
       );
 
       // updates chats store

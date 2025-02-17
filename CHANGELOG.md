@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.0
+
+### Features
+
+- `sendMessageWithAttachment` now sends an array of attachments. Retrieve the attachment URL from `message.attachments[index].url` instead of `message.fileUrl[0]`.
+
 ## 0.13.0
 
 ### Features

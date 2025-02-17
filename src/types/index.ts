@@ -31,7 +31,7 @@ export interface ChatContextType {
   leaveGroupChat: () => Promise<void>;
   sendMessage: (body: string, dialog?: Dialogs.Dialog) => void;
   sendMessageWithAttachment: (
-    file: File,
+    files: File[],
     dialog?: Dialogs.Dialog
   ) => Promise<void>;
   readMessage: (messageId: string, userId: number, dialogId: string) => void;
@@ -46,11 +46,6 @@ export interface ChatContextType {
   lastMessageSentTimeString: (dialog: Dialogs.Dialog) => string;
   messageSentTimeString: (message: Messages.Message) => string;
   processOnMessage: (fn: Chat.OnMessageListener) => void;
-}
-
-export interface FileAttachment {
-  uid: string;
-  type: string;
 }
 
 export enum GroupChatEventType {
