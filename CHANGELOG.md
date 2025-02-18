@@ -4,6 +4,12 @@
 
 ### Bug fixes
 
+- Fixes for automated releases.
+
+## 0.14.1
+
+### Bug fixes
+
 - Attachment type is `undefined` when using `sendMessageWithAttachment`.
 
 ## 0.14.0
