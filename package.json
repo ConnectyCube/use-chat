@@ -30,8 +30,8 @@
     "dist"
   ],
   "scripts": {
-    "preinstall": "sh ./fetch-version.sh",
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "version": "sh ./fetch-version.sh"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

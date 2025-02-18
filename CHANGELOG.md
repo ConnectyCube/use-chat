@@ -4,7 +4,7 @@
 
 ### Features
 
-- Fetch `package.json` version with `CHANGELOG.md` before `npm install`.
+- Run `npm run version` to fetch the `package.json` version to the latest one from `CHANGELOG.md`.
 
 ## 0.14.2
 
