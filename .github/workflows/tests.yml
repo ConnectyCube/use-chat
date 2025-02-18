@@ -1,0 +1,30 @@
+# This is just in case for the future, to implement tests if needed
+
+name: Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # - name: Install node
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: '20.x'
+      #     registry-url: 'https://registry.npmjs.org'
+
+      # - name: Run npm install
+      #   run: npm ci
+        
+      # - name: Run Tests
+      #   run: npm test
+      #   continue-on-error: false
