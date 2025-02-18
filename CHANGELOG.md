@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.2
+
+### Bug fixes
+
+- Fixes for automated releases.
+
 ## 0.14.1
 
 ### Bug fixes

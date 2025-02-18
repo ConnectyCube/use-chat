@@ -76,7 +76,7 @@ jobs:
       - name: Run npm install
         run: npm ci
         
-      - name: Run npm install
+      - name: Run npm build
         run: npm run build
 
       - name: Publish
