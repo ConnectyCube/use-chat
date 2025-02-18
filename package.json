@@ -1,7 +1,7 @@
 {
   "name": "@connectycube/use-chat",
   "description": "A React hook for state management in ConnectyCube-powered chat solutions",
-  "version": "0.14.1",
+  "version": "0.14.2",
   "homepage": "https://github.com/ConnectyCube/use-chat",
   "keywords": [
     "react",
@@ -30,7 +30,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "fetch-version": "sh ./fetch-version.sh"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
