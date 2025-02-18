@@ -347,9 +347,9 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     });
 
     const uploadedFilesResults = await Promise.all(uploadFilesPromises);
-    const uploadedAttachments = uploadedFilesResults.map(({ uid, type }) => ({
+    const uploadedAttachments = uploadedFilesResults.map(({ uid, content_type }) => ({
       uid,
-      type,
+      type: content_type ?? "",
       url: ConnectyCube.storage.privateUrl(uid),
     }));
 
