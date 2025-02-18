@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.3
+
+### Features
+
+- Fetch `package.json` version with `CHANGELOG.md` before `npm install`.
+
 ## 0.14.2
 
 ### Bug fixes
