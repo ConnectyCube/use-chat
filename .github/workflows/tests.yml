@@ -1,5 +1,3 @@
-# This is just in case for the future, to implement tests if needed
-
 name: Tests
 
 on:
@@ -28,3 +26,25 @@ jobs:
       # - name: Run Tests
       #   run: npm test
       #   continue-on-error: false
+
+      - name: Extract Version
+        id: extract-version
+        run: |
+          # Use grep to find the first occurrence of the version number matching "## 0.0.0" pattern
+          version=$(grep -m 1 -oP '## \d+\.\d+\.\d+' CHANGELOG.md | cut -d ' ' -f 2)
+          echo "version=$version" >> $GITHUB_ENV
+
+      - name: Get version from package.json
+        id: get-package-version
+        run: |
+          package_version=$(grep -oP '"version": "\K[0-9]+\.[0-9]+\.[0-9]+' package.json)
+          echo "package_version=$package_version" >> $GITHUB_ENV
+  
+      - name: Compare Versions
+        run: |
+            if [ "$version" != "$package_version" ]; then
+              echo "Version mismatch: CHANGELOG version ($version) does not match package.json version ($package_version)"
+              exit 1
+            else
+              echo "Versions match: $version"
+            fi
