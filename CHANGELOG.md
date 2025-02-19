@@ -1,10 +1,12 @@
 # Changelog
 
-## 0.14.2
+## 0.14.3
 
 ### Features
 
 - Run `npm run version` to fetch the `package.json` version to the latest one from `CHANGELOG.md`;
+
+## 0.14.2
 
 ### Bug fixes
 
