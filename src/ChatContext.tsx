@@ -141,23 +141,30 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       limit: 100,
       skip: 0,
     };
-    const result = await ConnectyCube.chat.message.list(params);
-
-    // store messages
-    const retrievedMessages = result.items
-      .sort((a: Messages.Message, b: Messages.Message) => {
-        return a._id.toString().localeCompare(b._id.toString()); // revers sort
-      })
-      .map((msg) => {
-        const attachments = msg.attachments?.map((attachment) => ({
-          ...attachment,
-          url: ConnectyCube.storage.privateUrl(attachment.uid),
-        }));
-        return { ...msg, attachments };
-      });
-    setMessages({ ...messages, [dialogId]: retrievedMessages });
-
-    return retrievedMessages;
+    try {
+      const result = await ConnectyCube.chat.message.list(params);
+      // store messages
+      const retrievedMessages = result.items
+        .sort((a: Messages.Message, b: Messages.Message) => {
+          return a._id.toString().localeCompare(b._id.toString()); // revers sort
+        })
+        .map((msg) => {
+          const attachments = msg.attachments?.map((attachment) => ({
+            ...attachment,
+            url: ConnectyCube.storage.privateUrl(attachment.uid),
+          }));
+          return { ...msg, attachments };
+        });
+      setMessages({ ...messages, [dialogId]: retrievedMessages });
+      return retrievedMessages;
+    } catch (error: any) {
+      if (error.code === 404) {
+        // dialog not found
+        setMessages({ ...messages, [dialogId]: [] });
+        return [];
+      }
+      throw error;
+    }
   };
 
   const selectDialog = async (dialog: Dialogs.Dialog): Promise<void> => {
