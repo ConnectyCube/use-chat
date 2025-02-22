@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.4
+
+### Bug fixes
+
+- `listOnlineUsers` to store retrieved users in `users`
+
 ## 0.14.3
 
 ### Bug fixes
