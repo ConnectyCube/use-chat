@@ -538,6 +538,14 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     if (shouldRequest || isDifferentParams || force) {
       try {
         const { users } = await ConnectyCube.users.listOnline(params);
+
+        // store users in global users storage
+        const usersIdsMap = users.reduce<{ [key: number]: Users.User }>((map, user) => {
+          map[user.id] = user;
+          return map;
+        }, {});
+        setUsers({ ...usersRef.current, ...usersIdsMap });
+
         setOnlineUsers({ users, requested_at: currentTimestamp, ...params });
       } catch (error) {
         console.error("Failed to fetch online users", error);
