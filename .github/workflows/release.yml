@@ -6,11 +6,38 @@ on:
       - closed
 
 jobs:
-  create-release:
+  publish:
     if: |
       contains(github.event.pull_request.title, 'release') == true &&
       github.event.pull_request.merged == true &&
       github.event.pull_request.base.ref == 'main'
+
+    runs-on: ubuntu-latest
+        
+    steps:
+                
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Install node
+        uses: actions/setup-node@v4
+        with:
+            node-version: '20.x'
+            registry-url: 'https://registry.npmjs.org'
+        
+      - name: Run npm install
+        run: npm ci
+        
+      - name: Run npm build
+        run: npm run build
+
+      - name: Publish
+        run: npm publish --access public
+        env:
+            NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  create-release:
+    needs: publish
     runs-on: ubuntu-latest
 
     steps:
@@ -57,29 +84,3 @@ jobs:
           # You can pass in multiple channels to post to by providing a comma-delimited list of channel IDs.
           channel-id: "git-releases"
           payload-file-path: "./.github/slack/payload-slack-content.json"
-
-  publish:
-    needs: create-release
-    runs-on: ubuntu-latest
-        
-    steps:
-                
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Install node
-        uses: actions/setup-node@v4
-        with:
-            node-version: '20.x'
-            registry-url: 'https://registry.npmjs.org'
-        
-      - name: Run npm install
-        run: npm ci
-        
-      - name: Run npm build
-        run: npm run build
-
-      - name: Publish
-        run: npm publish --access public
-        env:
-            NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
