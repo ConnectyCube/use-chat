@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.15.0 (draft)
+
+### Features
+
+- Block users API
+
 ## 0.14.4
 
 ### Bug fixes
