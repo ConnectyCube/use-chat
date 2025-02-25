@@ -4,6 +4,7 @@ import { Chat, DateOrTimestamp, Dialogs, Messages, Users } from "connectycube/di
 import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
 import { formatDistanceToNow } from "date-fns";
+import { useBlockList } from "./hooks";
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 ChatContext.displayName = "ChatContext";
@@ -20,8 +21,8 @@ export const useChat = (): ChatContextType => {
 
 export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement => {
   const [isOnline, setIsOnline, _isOnlineRef] = useStateRef<boolean>(navigator.onLine);
-  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
   const [isConnected, setIsConnected] = useState(false);
+  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
   const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<UnreadMessagesCount>({ total: 0 });
   const [users, setUsers, usersRef] = useStateRef<{
@@ -45,12 +46,14 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   }>({});
   const typingTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
+  // add block list functions as hook
+  const blockList = useBlockList(isConnected);
 
   const connect = async (credentials: Chat.ConnectionParams) => {
     try {
       await ConnectyCube.chat.connect(credentials);
-      setCurrentUserId(credentials.userId);
       setIsConnected(true);
+      setCurrentUserId(credentials.userId);
     } catch (error) {
       console.error(`Failed to connect due to ${error}`);
     }
@@ -856,6 +859,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         lastMessageSentTimeString,
         messageSentTimeString,
         processOnMessage,
+        ...blockList,
       }}
     >
       {children}
