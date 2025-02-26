@@ -51,9 +51,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
   const connect = async (credentials: Chat.ConnectionParams) => {
     try {
-      await ConnectyCube.chat.connect(credentials);
-      setIsConnected(true);
-      setCurrentUserId(credentials.userId);
+      const _isConnected = await ConnectyCube.chat.connect(credentials);
+      if (_isConnected) {
+        setIsConnected(_isConnected);
+        setCurrentUserId(credentials.userId);
+      }
     } catch (error) {
       console.error(`Failed to connect due to ${error}`);
     }
