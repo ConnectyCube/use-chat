@@ -98,7 +98,6 @@ function useBlockList(isConnected: boolean): BlockListHook {
   };
 
   useEffect(() => {
-    console.warn("useEffect", { isConnected });
     if (isConnected) {
       fetch();
     }
