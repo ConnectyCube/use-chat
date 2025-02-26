@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.15.0
+
+### Features
+
+- Implemented Block users API
+
 ## 0.14.4
 
 ### Bug fixes
