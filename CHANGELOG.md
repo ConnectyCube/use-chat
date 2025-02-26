@@ -4,31 +4,7 @@
 
 ### Features
 
-- Implemented blockList users API via `useBlockList` hook.
-
-```tsx
-import React, { useEffect } from "react";
-import { useChat } from "@connectycube/use-chat";
-
-const MyComponent: React.FC<MyComponentProps> = ({userId}) => {
-  const { blockedUsers, isBlockedUser, blockUser, unblockUser } = useChat();
-
-  useEffect(() => {
-    console.log(`Blocked user ids: ${blockedUsers}`);
-  }, [blockedUsers]);
-
-  useEffect(() => {
-    console.log(`User (${userId}) blocked: ${isBlockedUser(userId)}`);
-  }, [blockedUsers, userId]);
-
-  return (
-    //...
-    <button onClick={() => blockUser(userId)}>{"Block"}</button>
-    <button onClick={() => unblockUser(userId)}>{"Unblock"}</button>
-    //...
-  );
-}
-```
+- Implemented Block users API
 
 ## 0.14.4
 
