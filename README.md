@@ -8,11 +8,12 @@ The core purpose is to handle essential chat features like state management, han
 
 ## Features
 
-- Handle chat states, including the currently active conversation
-- Handle chat messages state, store last 50 messages in memory for every chat
+- Handle chats and messages states, including the currently active conversation
 - Manage chat participants states
 - Maintain typing indicators and users last activity.
 - Support attachments download
+- Message drafts
+- Moderation via user reporting and block
 
 ## Installation
 
@@ -73,15 +74,21 @@ export default MyComponent;
 
 Check types for more API examples https://github.com/ConnectyCube/use-chat/blob/main/src/types/index.ts
 
+
+## Documentation 
+
+[https://developers.connectycube.com/js/use-chat](https://developers.connectycube.com/js/use-chat)
+
+## Have an issue?
+
+Join our [Discord](https://discord.gg/tEnXnp2M) for quick answers to your questions
+
 ## Community and support
 
+- [Discord](https://discord.gg/tEnXnp2M)
 - [Blog](https://connectycube.com/blog)
 - X (twitter)[@ConnectyCube](https://x.com/ConnectyCube)
 - [Facebook](https://www.facebook.com/ConnectyCube)
-
-## Website
-
-[https://connectycube.com](https://connectycube.com)
 
 ## License
 
