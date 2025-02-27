@@ -4,7 +4,11 @@
 
 ### Features
 
-- Implemented `processOnMessageError` function to process needed actions on error message
+- Implemented `processOnMessageError` function to process needed actions on error message;
+
+### Bug fixes
+
+- Block users API.
 
 ## 0.15.0
 
