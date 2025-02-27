@@ -88,7 +88,7 @@ Join our [Discord](https://discord.gg/wDwbvJmD) for quick answers to your questi
 
 ## Community and support
 
-- [Discord](https://discord.gg/tEnXnp2M)
+- [Discord](https://discord.gg/wDwbvJmD)
 - [Blog](https://connectycube.com/blog)
 - X (twitter)[@ConnectyCube](https://x.com/ConnectyCube)
 - [Facebook](https://www.facebook.com/ConnectyCube)
