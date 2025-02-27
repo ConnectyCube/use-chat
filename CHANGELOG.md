@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.0
+
+### Features
+
+- Implemented `processOnMessageError` function to process needed actions on error message
+
 ## 0.15.0
 
 ### Features
