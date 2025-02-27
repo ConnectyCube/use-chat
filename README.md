@@ -84,7 +84,7 @@ Check types for more API examples https://github.com/ConnectyCube/use-chat/blob/
 
 ## Have an issue?
 
-Join our [Discord](https://discord.gg/tEnXnp2M) for quick answers to your questions
+Join our [Discord](https://discord.gg/wDwbvJmD) for quick answers to your questions
 
 ## Community and support
 
