@@ -72,8 +72,11 @@ const MyComponent = () => {
 export default MyComponent;
 ```
 
-Check types for more API examples https://github.com/ConnectyCube/use-chat/blob/main/src/types/index.ts
+For more complex example please check [React chat code sample](https://github.com/ConnectyCube/connectycube-web-samples/tree/master/chat-react)
 
+## API
+
+Check types for more API examples https://github.com/ConnectyCube/use-chat/blob/main/src/types/index.ts
 
 ## Documentation 
 
