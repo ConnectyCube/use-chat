@@ -17,8 +17,8 @@ enum BlockAction {
 }
 
 function useBlockList(isConnected: boolean): BlockListHook {
-  const isApplied = useRef<boolean>(false);
   const [state, setState] = useState<Set<number>>(new Set<number>());
+  const isApplied = useRef<boolean>(false);
 
   const updateState = (userId: number, action: BlockAction) => {
     const newState = new Set(state);
