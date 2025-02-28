@@ -69,11 +69,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
   };
 
-  const createChat = async (userId: number, extension?: { [key: string]: any }): Promise<Dialogs.Dialog> => {
+  const createChat = async (userId: number, extensions?: { [key: string]: any }): Promise<Dialogs.Dialog> => {
     const params = {
       type: 3,
       occupants_ids: [userId],
-      extension,
+      extensions,
     };
     const newDialog = await ConnectyCube.chat.dialog.create(params);
 
@@ -93,14 +93,14 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     usersIds: number[],
     name: string,
     photo?: string,
-    extension?: { [key: string]: any },
+    extensions?: { [key: string]: any },
   ): Promise<Dialogs.Dialog> => {
     const params = {
       type: 2,
       name,
       photo,
       occupants_ids: usersIds,
-      extension,
+      extensions,
     };
 
     const dialog = await ConnectyCube.chat.dialog.create(params);
