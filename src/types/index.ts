@@ -12,8 +12,13 @@ export interface ChatContextType extends BlockListHook {
   isConnected: boolean;
   disconnect: () => void;
   currentUserId?: number;
-  createChat: (userId: number) => Promise<Dialogs.Dialog>;
-  createGroupChat: (usersIds: number[], chatName: string) => Promise<Dialogs.Dialog>;
+  createChat: (userId: number, extensions?: { [key: string]: any }) => Promise<Dialogs.Dialog>;
+  createGroupChat: (
+    usersIds: number[],
+    name: string,
+    photo?: string,
+    extensions?: { [key: string]: any },
+  ) => Promise<Dialogs.Dialog>;
   getDialogs: (filters?: Dialogs.ListParams) => Promise<Dialogs.Dialog[]>;
   dialogs: Dialogs.Dialog[];
   selectedDialog?: Dialogs.Dialog;
