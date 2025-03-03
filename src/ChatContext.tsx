@@ -46,6 +46,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   }>({});
   const typingTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
+  const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
   // add block list functions as hook
   const blockList = useBlockList(isConnected);
 
@@ -644,6 +645,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     onMessageRef.current = callbackFn;
   };
 
+  const processOnMessageError = (callbackFn: Chat.OnMessageErrorListener) => {
+    onMessageErrorRef.current = callbackFn;
+  };
+
   // Internet listeners
   useEffect(() => {
     const abortController1 = new AbortController();
@@ -722,6 +727,12 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
       if (onMessageRef.current) {
         onMessageRef.current(userId, message);
+      }
+    };
+
+    ConnectyCube.chat.onMessageErrorListener = (messageId: string, error: { code: number; info: string }) => {
+      if (onMessageErrorRef.current) {
+        onMessageErrorRef.current(messageId, error);
       }
     };
 
@@ -869,6 +880,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         lastMessageSentTimeString,
         messageSentTimeString,
         processOnMessage,
+        processOnMessageError,
         ...blockList,
       }}
     >

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.16.0
+
+### Features
+
+- Implemented `processOnMessageError` function to process needed actions on error message;
+- Allow to pass `photo` and `extensions` in `createChat` and `createGroupChat`.
+
+### Bug fixes
+
+- Block users API.
+
 ## 0.15.0
 
 ### Features

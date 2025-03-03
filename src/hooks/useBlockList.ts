@@ -17,9 +17,8 @@ enum BlockAction {
 }
 
 function useBlockList(isConnected: boolean): BlockListHook {
-  let isApplied = useRef<boolean>(false).current;
-
   const [state, setState] = useState<Set<number>>(new Set<number>());
+  const isApplied = useRef<boolean>(false);
 
   const updateState = (userId: number, action: BlockAction) => {
     const newState = new Set(state);
@@ -52,7 +51,7 @@ function useBlockList(isConnected: boolean): BlockListHook {
         return list;
       }, new Set<number>());
 
-      isApplied = true;
+      isApplied.current = true;
 
       setState(newState);
     }
@@ -69,12 +68,15 @@ function useBlockList(isConnected: boolean): BlockListHook {
       items: [{ user_id, action, mutualBlock: true }],
     };
 
-    if (isApplied) {
+    await ConnectyCube.chat.privacylist.setAsDefault("");
+
+    if (isApplied.current) {
       await ConnectyCube.chat.privacylist.update(blockList);
     } else {
       await ConnectyCube.chat.privacylist.create(blockList);
-      await ConnectyCube.chat.privacylist.setAsDefault(BLOCK_LIST_NAME);
     }
+
+    await ConnectyCube.chat.privacylist.setAsDefault(BLOCK_LIST_NAME);
   };
 
   const unblock = async (userId: number): Promise<void> => {
