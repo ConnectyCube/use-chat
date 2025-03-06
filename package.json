@@ -27,7 +27,8 @@
     "url": "git+ssh://git@github.com/ConnectyCube/use-chat.git"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rollup -c",
