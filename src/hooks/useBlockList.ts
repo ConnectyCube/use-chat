@@ -11,7 +11,7 @@ export type BlockListHook = {
   blockUser: (userId: number) => Promise<void>;
 };
 
-enum BlockAction {
+enum PrivacyListAction {
   ALLOW = "allow",
   DENY = "deny",
 }
@@ -19,18 +19,6 @@ enum BlockAction {
 function useBlockList(isConnected: boolean): BlockListHook {
   const [state, setState] = useState<Set<number>>(new Set<number>());
   const isApplied = useRef<boolean>(false);
-
-  const updateState = (userId: number, action: BlockAction) => {
-    const newState = new Set(state);
-
-    if (action === BlockAction.DENY) {
-      newState.add(userId);
-    } else if (action === BlockAction.ALLOW) {
-      newState.delete(userId);
-    }
-
-    setState(newState);
-  };
 
   const isBlocked = (userId: number): boolean => state.has(userId);
 
@@ -45,7 +33,7 @@ function useBlockList(isConnected: boolean): BlockListHook {
     if (blackListNames.default === BLOCK_LIST_NAME) {
       const blockList = await ConnectyCube.chat.privacylist.getList(BLOCK_LIST_NAME);
       const newState = blockList.items.reduce((list: Set<number>, item) => {
-        if (item.action === BlockAction.DENY) {
+        if (item.action === PrivacyListAction.DENY) {
           list.add(+item.user_id);
         }
         return list;
@@ -57,26 +45,41 @@ function useBlockList(isConnected: boolean): BlockListHook {
     }
   };
 
-  const upsert = async (user_id: number, action: BlockAction): Promise<void> => {
+  const upsert = async (user_id: number, action: PrivacyListAction): Promise<void> => {
     if (!isConnected) {
       console.warn(`${BLOCK_LIST_LOG_TAG}[upsert]: ${action} user ${user_id} failed, chat is not connected`);
       return;
     }
+
+    const newState = new Set(state);
 
     const blockList = {
       name: BLOCK_LIST_NAME,
       items: [{ user_id, action, mutualBlock: true }],
     };
 
-    await ConnectyCube.chat.privacylist.setAsDefault("");
+    try {
+      if (action === PrivacyListAction.DENY) {
+        newState.add(user_id);
+      } else if (action === PrivacyListAction.ALLOW) {
+        newState.delete(user_id);
+      }
 
-    if (isApplied.current) {
-      await ConnectyCube.chat.privacylist.update(blockList);
-    } else {
-      await ConnectyCube.chat.privacylist.create(blockList);
+      if (isApplied.current) {
+        await ConnectyCube.chat.privacylist.setAsDefault(null);
+        await ConnectyCube.chat.privacylist.update(blockList);
+        if (newState.size > 0) {
+          await ConnectyCube.chat.privacylist.setAsDefault(BLOCK_LIST_NAME);
+        }
+      } else {
+        await ConnectyCube.chat.privacylist.create(blockList);
+        await ConnectyCube.chat.privacylist.setAsDefault(BLOCK_LIST_NAME);
+      }
+    } catch (error) {
+      return;
+    } finally {
+      setState(newState);
     }
-
-    await ConnectyCube.chat.privacylist.setAsDefault(BLOCK_LIST_NAME);
   };
 
   const unblock = async (userId: number): Promise<void> => {
@@ -85,8 +88,7 @@ function useBlockList(isConnected: boolean): BlockListHook {
       return;
     }
 
-    await upsert(userId, BlockAction.ALLOW);
-    updateState(userId, BlockAction.ALLOW);
+    await upsert(userId, PrivacyListAction.ALLOW);
   };
 
   const block = async (userId: number): Promise<void> => {
@@ -95,8 +97,7 @@ function useBlockList(isConnected: boolean): BlockListHook {
       return;
     }
 
-    await upsert(userId, BlockAction.DENY);
-    updateState(userId, BlockAction.DENY);
+    await upsert(userId, PrivacyListAction.DENY);
   };
 
   useEffect(() => {
