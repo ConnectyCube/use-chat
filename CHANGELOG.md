@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.0
+
+### Updates
+
+- Block users API was optimized.
+
 ## 0.16.0
 
 ### Features
