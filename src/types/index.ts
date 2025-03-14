@@ -22,7 +22,7 @@ export interface ChatContextType extends BlockListHook {
   getDialogs: (filters?: Dialogs.ListParams) => Promise<Dialogs.Dialog[]>;
   dialogs: Dialogs.Dialog[];
   selectedDialog?: Dialogs.Dialog;
-  selectDialog: (dialog?: Dialogs.Dialog) => Promise<void>;
+  selectDialog: (dialog: Dialogs.Dialog) => Promise<void>;
   getDialogOpponentId: (dialog?: Dialogs.Dialog) => number | undefined;
   unreadMessagesCount: UnreadMessagesCount;
   users: { [userId: number]: Users.User };
