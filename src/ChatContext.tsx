@@ -93,7 +93,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const createGroupChat = async (
     usersIds: number[],
     name: string,
-    photo?: string | null,
+    photo?: string,
     extensions?: { [key: string]: any },
   ): Promise<Dialogs.Dialog> => {
     const params = {
@@ -196,10 +196,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     if (dialog.unread_messages_count > 0) {
       await markDialogAsRead(dialog).catch((_error) => {});
     }
-  };
-
-  const unselectDialog = async (): Promise<void> => {
-    setSelectedDialog(undefined);
   };
 
   const getDialogOpponentId = (dialog?: Dialogs.Dialog): number | undefined => {
@@ -860,7 +856,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         getDialogs,
         dialogs,
         selectDialog,
-        unselectDialog,
         selectedDialog,
         getDialogOpponentId,
         unreadMessagesCount,
