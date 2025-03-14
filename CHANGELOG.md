@@ -4,7 +4,15 @@
 
 ### Updates
 
-- Block users API was optimized.
+- Block users API was optimized;
+
+### Features
+
+- Implemented `unselectDialog()` method;
+
+### Bug fixes
+
+- TypeScript.
 
 ## 0.16.0
 
