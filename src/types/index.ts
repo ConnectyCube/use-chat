@@ -22,7 +22,7 @@ export interface ChatContextType extends BlockListHook {
   getDialogs: (filters?: Dialogs.ListParams) => Promise<Dialogs.Dialog[]>;
   dialogs: Dialogs.Dialog[];
   selectedDialog?: Dialogs.Dialog;
-  selectDialog: (dialog: Dialogs.Dialog) => Promise<void>;
+  selectDialog: (dialog?: Dialogs.Dialog) => Promise<void>;
   getDialogOpponentId: (dialog?: Dialogs.Dialog) => number | undefined;
   unreadMessagesCount: UnreadMessagesCount;
   users: { [userId: number]: Users.User };
@@ -45,8 +45,8 @@ export interface ChatContextType extends BlockListHook {
   lastActivity: { [userId: number]: string };
   lastMessageSentTimeString: (dialog: Dialogs.Dialog) => string;
   messageSentTimeString: (message: Messages.Message) => string;
-  processOnMessage: (fn: Chat.OnMessageListener) => void;
-  processOnMessageError: (fn: Chat.OnMessageErrorListener) => void;
+  processOnMessage: (fn: Chat.OnMessageListener | null) => void;
+  processOnMessageError: (fn: Chat.OnMessageErrorListener | null) => void;
 }
 
 export enum GroupChatEventType {
