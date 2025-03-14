@@ -181,9 +181,8 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
   };
 
-  const selectDialog = async (dialog?: Dialogs.Dialog): Promise<void> => {
+  const selectDialog = async (dialog: Dialogs.Dialog): Promise<void> => {
     setSelectedDialog(dialog);
-
     if (!dialog) {
       return;
     }
@@ -646,11 +645,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     });
   };
 
-  const processOnMessage = (callbackFn: Chat.OnMessageListener | null) => {
+  const processOnMessage = (callbackFn: Chat.OnMessageListener) => {
     onMessageRef.current = callbackFn;
   };
 
-  const processOnMessageError = (callbackFn: Chat.OnMessageErrorListener | null) => {
+  const processOnMessageError = (callbackFn: Chat.OnMessageErrorListener) => {
     onMessageErrorRef.current = callbackFn;
   };
 
