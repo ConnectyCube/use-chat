@@ -1,4 +1,4 @@
-import { Chat, Dialogs, Messages, Users } from "connectycube/types";
+import { Chat, Dialogs, Messages, Users } from "connectycube/dist/types/types";
 import { ReactNode } from "react";
 import { BlockListHook } from "../hooks/useBlockList";
 
