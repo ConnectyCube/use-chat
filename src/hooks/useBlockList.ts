@@ -1,5 +1,5 @@
 import ConnectyCube from "connectycube";
-import { PrivacyListAction } from "connectycube/dist/types/types";
+import { PrivacyListAction } from "connectycube/types";
 import { useEffect, useState, useRef } from "react";
 
 export const BLOCK_LIST_LOG_TAG = "[useChat][useBlockList]";

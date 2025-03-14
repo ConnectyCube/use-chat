@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ChatContextType, ChatProviderType, GroupChatEventType, UnreadMessagesCount } from "./types";
-import { Chat, DateOrTimestamp, Dialogs, Messages, Users } from "connectycube/dist/types/types";
 import ConnectyCube from "connectycube";
+import { Chat, DateOrTimestamp, Dialogs, Messages, Users } from "connectycube/types";
 import useStateRef from "react-usestateref";
 import { formatDistanceToNow } from "date-fns";
 import { useBlockList } from "./hooks";
