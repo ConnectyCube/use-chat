@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.18.0
+
+### Updates
+
+- Added support for node 22;
+- Upgraded `connectycube` >=4.2.1 to use import types and enums from "connectycube/types".
+
 ## 0.17.0
 
 ### Updates
