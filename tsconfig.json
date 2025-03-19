@@ -10,14 +10,14 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
     "declarationDir": "./dist/types",
     "declaration": true,
-    "declarationMap": true,
+    "declarationMap": true
   },
   "include": ["src"]
 }

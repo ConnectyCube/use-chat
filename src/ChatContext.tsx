@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { ChatContextType, ChatProviderType, GroupChatEventType, UnreadMessagesCount } from "./types";
-import { Chat, DateOrTimestamp, Dialogs, Messages, Users } from "connectycube/dist/types/types";
+import { ChatContextType, ChatProviderType, GroupChatEventType } from "./types";
+import { Chat, Dialogs, Messages } from "connectycube/types";
 import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
 import { formatDistanceToNow } from "date-fns";
-import { useBlockList } from "./hooks";
+import { useBlockList, useUsers } from "./hooks";
+import { parseDate } from "./helpers";
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 ChatContext.displayName = "ChatContext";
@@ -24,19 +25,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const [isConnected, setIsConnected] = useState(false);
   const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
   const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
-  const [unreadMessagesCount, setUnreadMessagesCount] = useState<UnreadMessagesCount>({ total: 0 });
-  const [users, setUsers, usersRef] = useStateRef<{
-    [userId: number]: Users.User;
-  }>({});
-  const [_onlineUsers, setOnlineUsers, onlineUsersRef] = useStateRef<
-    Users.UsersResponse & Users.ListOnlineParams & { requested_at: number }
-  >({ users: [], limit: 100, offset: 0, requested_at: 0 });
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState<ChatContextType["unreadMessagesCount"]>({ total: 0 });
   const [selectedDialog, setSelectedDialog] = useState<Dialogs.Dialog | undefined>();
   const [messages, setMessages, messagesRef] = useStateRef<{
     [dialogId: string]: Messages.Message[];
-  }>({});
-  const [lastActivity, setLastActivity] = useState<{
-    [userId: number]: string;
   }>({});
   const [typingStatus, setTypingStatus] = useState<{
     [dialogId: string]: { [userId: string]: boolean };
@@ -47,8 +39,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const typingTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
   const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
-  // add block list functions as hook
+  // internal hooks
   const blockList = useBlockList(isConnected);
+  const chatUsers = useUsers(currentUserId);
+  const { _retrieveAndStoreUsers } = chatUsers;
 
   const connect = async (credentials: Chat.ConnectionParams) => {
     try {
@@ -81,9 +75,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     const dialog = _findDialog(newDialog._id);
     if (!dialog) {
       setDialogs([newDialog, ...dialogs]);
-
       _notifyUsers(GroupChatEventType.NEW_DIALOG, newDialog._id, userId);
-
       _retrieveAndStoreUsers([userId, currentUserId as number]);
     }
 
@@ -132,8 +124,8 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       });
       // Convert the map values back to an array and sort it
       const uniqueDialogs = Array.from(uniqueDialogsMap.values()).sort((a, b) => {
-        const dateA = _parseDate(a.last_message_date_sent) || _parseDate(a.created_at) || 0;
-        const dateB = _parseDate(b.last_message_date_sent) || _parseDate(b.created_at) || 0;
+        const dateA = parseDate(a.last_message_date_sent) || parseDate(a.created_at) || 0;
+        const dateB = parseDate(b.last_message_date_sent) || parseDate(b.created_at) || 0;
 
         return dateB - dateA; // Sort in descending order (most recent first)
       });
@@ -181,7 +173,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
   };
 
-  const selectDialog = async (dialog: Dialogs.Dialog): Promise<void> => {
+  const selectDialog = async (dialog?: Dialogs.Dialog): Promise<void> => {
     setSelectedDialog(dialog);
     if (!dialog) {
       return;
@@ -215,7 +207,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const _updateUnreadMessagesCount = () => {
-    const count: UnreadMessagesCount = { total: 0 };
+    const count: ChatContextType["unreadMessagesCount"] = { total: 0 };
 
     dialogs.forEach(({ _id, unread_messages_count = 0 }: Dialogs.Dialog) => {
       if (_id !== selectedDialog?._id) {
@@ -426,8 +418,8 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     dialog.last_message_date_sent = ts;
     setDialogs(
       [...dialogsRef.current].sort((a, b) => {
-        const dateA = _parseDate(a.last_message_date_sent) || (_parseDate(a.created_at) as number);
-        const dateB = _parseDate(b.last_message_date_sent) || (_parseDate(b.created_at) as number);
+        const dateA = parseDate(a.last_message_date_sent) || (parseDate(a.created_at) as number);
+        const dateB = parseDate(b.last_message_date_sent) || (parseDate(b.created_at) as number);
 
         return dateB - dateA; // Sort in ascending order
       }),
@@ -458,15 +450,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     });
   };
 
-  const _parseDate = (date: DateOrTimestamp): number | undefined => {
-    if (typeof date === "string") {
-      return new Date(date).getTime();
-    } else if (typeof date === "number") {
-      return date * 1000;
-    }
-    return undefined;
-  };
-
   const readMessage = (messageId: string, userId: number, dialogId: string) => {
     ConnectyCube.chat.sendReadStatus({
       messageId,
@@ -489,24 +472,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     setMessages({ ...messages });
   };
 
-  const _retrieveAndStoreUsers = async (usersIds: number[]) => {
-    const usersToFind = usersIds.filter((userId) => !users[userId]);
-    if (usersToFind.length > 0) {
-      const params = {
-        limit: 100,
-        id: { in: usersToFind },
-      };
-      const result = await ConnectyCube.users.getV2(params);
-
-      const usersIdsMap = result.items.reduce<{ [key: number]: Users.User }>((map, user) => {
-        map[user.id] = user;
-        return map;
-      }, {});
-
-      setUsers({ ...usersRef.current, ...usersIdsMap });
-    }
-  };
-
   const _notifyUsers = (command: string, dialogId: string, userId: number, params: any = {}) => {
     const msg = {
       body: command,
@@ -519,56 +484,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     ConnectyCube.chat.sendSystemMessage(userId, msg);
   };
 
-  const searchUsers = async (term: string): Promise<Users.User[]> => {
-    const users: Users.User[] = [];
-
-    const usersWithFullName = await ConnectyCube.users.getV2({
-      full_name: { start_with: term },
-      limit: 100,
-    });
-    users.push(...usersWithFullName.items.filter((user) => user.id !== currentUserId));
-
-    const usersWithLogin = await ConnectyCube.users.getV2({
-      login: { start_with: term },
-      limit: 100,
-    });
-    users.push(...usersWithLogin.items.filter((user) => user.id !== currentUserId));
-
-    // remove duplicates and current user for search
-    return users
-      .filter((user, ind) => ind === users.findIndex((elem) => elem.id === user.id))
-      .filter((user) => user.id !== parseInt(localStorage.userId));
-  };
-
-  const listOnlineUsers = async (
-    params: Users.ListOnlineParams = { limit: 100, offset: 0 },
-    force: boolean = false,
-  ): Promise<Users.User[]> => {
-    const { limit, offset, requested_at } = onlineUsersRef.current;
-    const currentTimestamp = Date.now();
-    const shouldRequest = currentTimestamp - requested_at > 60000;
-    const isDifferentParams = params.limit !== limit || params.offset !== offset;
-
-    if (shouldRequest || isDifferentParams || force) {
-      try {
-        const { users } = await ConnectyCube.users.listOnline(params);
-
-        // store users in global users storage
-        const usersIdsMap = users.reduce<{ [key: number]: Users.User }>((map, user) => {
-          map[user.id] = user;
-          return map;
-        }, {});
-        setUsers({ ...usersRef.current, ...usersIdsMap });
-
-        setOnlineUsers({ users, requested_at: currentTimestamp, ...params });
-      } catch (error) {
-        console.error("Failed to fetch online users", error);
-      }
-    }
-
-    return onlineUsersRef.current.users;
-  };
-
   const sendTypingStatus = (dialog?: Dialogs.Dialog) => {
     dialog ??= selectedDialog;
     if (!dialog) {
@@ -576,46 +491,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
 
     ConnectyCube.chat.sendIsTypingStatus(dialog.type === 3 ? (getDialogOpponentId(dialog) as number) : dialog._id);
-  };
-
-  const getLastActivity = async (userId: number): Promise<string> => {
-    try {
-      const result = await ConnectyCube.chat.getLastUserActivity(userId);
-      const secondsAgo = result.seconds;
-      const lastLoggedInTime = new Date(Date.now() - secondsAgo * 1000);
-
-      let status;
-
-      if (secondsAgo <= 30) {
-        status = "Online";
-      } else if (secondsAgo < 3600) {
-        const minutesAgo = Math.ceil(secondsAgo / 60);
-        status = `Last seen ${minutesAgo} minutes ago`;
-      } else {
-        const hoursAgo = Math.ceil(secondsAgo / 3600);
-        const currentHour = new Date().getHours();
-
-        if (currentHour - hoursAgo <= 0) {
-          const day = lastLoggedInTime.getUTCDate();
-          const month = lastLoggedInTime.getMonth() + 1;
-          const year = lastLoggedInTime.getFullYear();
-          status = `Last seen ${day}/${month.toString().padStart(2, "0")}/${year}`;
-        } else {
-          status = `Last seen ${hoursAgo} hours ago`;
-        }
-      }
-
-      // Update last activity and trigger any necessary updates
-      lastActivity[userId] = status;
-      setLastActivity({ ...lastActivity });
-
-      return status;
-    } catch (error) {
-      const fallbackStatus = "Last seen recently";
-      lastActivity[userId] = fallbackStatus;
-      setLastActivity({ ...lastActivity });
-      return fallbackStatus;
-    }
   };
 
   const _stopTyping = (userId: number, dialogId: string) => {
@@ -635,6 +510,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       },
     );
   };
+
   const messageSentTimeString = (message: Messages.Message): string => {
     return formatDistanceToNow((message.date_sent as number) * 1000, {
       addSuffix: true,
@@ -853,8 +729,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         isConnected,
         disconnect,
         currentUserId,
-        getDialogs,
-        dialogs,
         selectDialog,
         selectedDialog,
         getDialogOpponentId,
@@ -862,17 +736,14 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         getMessages,
         messages,
         sendMessage,
-        createGroupChat,
+        dialogs,
+        getDialogs,
         createChat,
-        markDialogAsRead,
-        users,
-        searchUsers,
-        listOnlineUsers,
+        createGroupChat,
         sendTypingStatus,
         typingStatus,
         sendMessageWithAttachment,
-        lastActivity,
-        getLastActivity,
+        markDialogAsRead,
         removeUsersFromGroupChat,
         addUsersToGroupChat,
         leaveGroupChat,
@@ -881,6 +752,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         messageSentTimeString,
         processOnMessage,
         processOnMessageError,
+        ...chatUsers,
         ...blockList,
       }}
     >
