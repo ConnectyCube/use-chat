@@ -41,8 +41,8 @@ export interface ChatContextType extends BlockListHook, UsersHook {
   };
   lastMessageSentTimeString: (dialog: Dialogs.Dialog) => string;
   messageSentTimeString: (message: Messages.Message) => string;
-  processOnMessage: (fn: Chat.OnMessageListener) => void;
-  processOnMessageError: (fn: Chat.OnMessageErrorListener) => void;
+  processOnMessage: (fn: Chat.OnMessageListener | null) => void;
+  processOnMessageError: (fn: Chat.OnMessageErrorListener | null) => void;
 }
 
 export enum GroupChatEventType {

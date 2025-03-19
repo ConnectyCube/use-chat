@@ -21,21 +21,15 @@ export const useChat = (): ChatContextType => {
 };
 
 export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement => {
-  const [isOnline, setIsOnline, _isOnlineRef] = useStateRef<boolean>(navigator.onLine);
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [isConnected, setIsConnected] = useState(false);
   const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
-  const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
+  const [dialogs, setDialogs] = useState<Dialogs.Dialog[]>([]);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<ChatContextType["unreadMessagesCount"]>({ total: 0 });
   const [selectedDialog, setSelectedDialog] = useState<Dialogs.Dialog | undefined>();
-  const [messages, setMessages, messagesRef] = useStateRef<{
-    [dialogId: string]: Messages.Message[];
-  }>({});
-  const [typingStatus, setTypingStatus] = useState<{
-    [dialogId: string]: { [userId: string]: boolean };
-  }>({});
-  const [activatedDialogs, setActivatedDialogs, _activatedDialogsRef] = useStateRef<{
-    [dialogId: string]: boolean;
-  }>({});
+  const [messages, setMessages] = useState<{ [dialogId: string]: Messages.Message[] }>({});
+  const [typingStatus, setTypingStatus] = useState<{ [dialogId: string]: { [userId: string]: boolean } }>({});
+  const [activatedDialogs, setActivatedDialogs] = useState<{ [dialogId: string]: boolean }>({});
   const typingTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
   const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
@@ -70,16 +64,14 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       occupants_ids: [userId],
       extensions,
     };
-    const newDialog = await ConnectyCube.chat.dialog.create(params);
+    const dialog = await ConnectyCube.chat.dialog.create(params);
 
-    const dialog = _findDialog(newDialog._id);
-    if (!dialog) {
-      setDialogs([newDialog, ...dialogs]);
-      _notifyUsers(GroupChatEventType.NEW_DIALOG, newDialog._id, userId);
-      _retrieveAndStoreUsers([userId, currentUserId as number]);
-    }
+    setDialogs((prevDialogs) => [dialog, ...prevDialogs.filter((d) => d._id !== dialog._id)]);
 
-    return newDialog;
+    _notifyUsers(GroupChatEventType.NEW_DIALOG, dialog._id, userId);
+    _retrieveAndStoreUsers([userId, currentUserId as number]);
+
+    return dialog;
   };
 
   const createGroupChat = async (
@@ -98,12 +90,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
     const dialog = await ConnectyCube.chat.dialog.create(params);
 
-    setDialogs([dialog, ...dialogs]);
+    setDialogs((prevDialogs) => [dialog, ...prevDialogs.filter((d) => d._id !== dialog._id)]);
 
     usersIds.forEach((userId) => {
       _notifyUsers(GroupChatEventType.NEW_DIALOG, dialog._id, userId);
     });
-
     _retrieveAndStoreUsers([...usersIds, currentUserId as number]);
 
     return dialog;
@@ -111,33 +102,31 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
   const getDialogs = async (filters?: Dialogs.ListParams): Promise<Dialogs.Dialog[]> => {
     // fetch chats
-    const result = await ConnectyCube.chat.dialog.list(filters);
+    const { items: fetchedDialogs } = await ConnectyCube.chat.dialog.list(filters);
 
     // store dialogs
-    setDialogs(() => {
-      // Merge the two arrays
-      const merged = [...dialogs, ...result.items];
-      // Create a map keyed by dialog.id (replace 'id' with the unique key property of your dialogs)
-      const uniqueDialogsMap = new Map();
-      merged.forEach((dialog) => {
-        uniqueDialogsMap.set(dialog._id, dialog);
-      });
-      // Convert the map values back to an array and sort it
-      const uniqueDialogs = Array.from(uniqueDialogsMap.values()).sort((a, b) => {
+    setDialogs((prevDialogs) => {
+      const allDialogs = [...prevDialogs, ...fetchedDialogs];
+
+      // Create a map keyed by dialog._id to eliminate duplicates
+      const uniqueDialogsMap = new Map<string, Dialogs.Dialog>();
+      allDialogs.forEach((dialog) => uniqueDialogsMap.set(dialog._id, dialog));
+
+      // Convert the map values to an array and sort by the most recent message date
+      const sortedDialogs = Array.from(uniqueDialogsMap.values()).sort((a, b) => {
         const dateA = parseDate(a.last_message_date_sent) || parseDate(a.created_at) || 0;
         const dateB = parseDate(b.last_message_date_sent) || parseDate(b.created_at) || 0;
-
         return dateB - dateA; // Sort in descending order (most recent first)
       });
 
-      return uniqueDialogs;
+      return sortedDialogs;
     });
 
     // store users
-    const usersIds = Array.from(new Set(result.items.flatMap((dialog) => dialog.occupants_ids)));
+    const usersIds = Array.from(new Set(fetchedDialogs.flatMap((dialog) => dialog.occupants_ids)));
     _retrieveAndStoreUsers(usersIds);
 
-    return result.items;
+    return fetchedDialogs;
   };
 
   const getMessages = async (dialogId: string): Promise<Messages.Message[]> => {
@@ -161,12 +150,12 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           }));
           return { ...msg, attachments };
         });
-      setMessages({ ...messages, [dialogId]: retrievedMessages });
+      setMessages((prevMessages) => ({ ...prevMessages, [dialogId]: retrievedMessages }));
       return retrievedMessages;
     } catch (error: any) {
       if (error.code === 404) {
         // dialog not found
-        setMessages({ ...messages, [dialogId]: [] });
+        setMessages((prevMessages) => ({ ...prevMessages, [dialogId]: [] }));
         return [];
       }
       throw error;
@@ -219,10 +208,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     setUnreadMessagesCount(count);
   };
 
-  const _findDialog = (dialogId: string): Dialogs.Dialog => {
-    return dialogsRef.current.find((d) => d._id === dialogId) as Dialogs.Dialog;
-  };
-
   const markDialogAsRead = async (dialog: Dialogs.Dialog): Promise<void> => {
     // mark all messages as read
     const params = {
@@ -231,8 +216,9 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     };
     await ConnectyCube.chat.message.update("", params);
 
-    dialog.unread_messages_count = 0;
-    setDialogs([...dialogs]);
+    setDialogs((prevDialogs) =>
+      prevDialogs.map((d) => (d._id === dialog._id ? { ...d, unread_messages_count: 0 } : d)),
+    );
   };
 
   const addUsersToGroupChat = async (usersIds: number[]): Promise<void> => {
@@ -253,18 +239,21 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           addedParticipantsIds: usersIds.join(),
         });
       });
-    // notify new user with system message
+
     usersIds.forEach((userId) => {
       _notifyUsers(GroupChatEventType.ADDED_TO_DIALOG, dialogId, userId);
     });
 
     // update store
     _retrieveAndStoreUsers(usersIds);
-    //
-    const updatedDialog = _findDialog(selectedDialog._id);
-    updatedDialog.occupants_ids = Array.from(new Set([...updatedDialog.occupants_ids, ...usersIds]));
-    setSelectedDialog({ ...updatedDialog });
-    setDialogs([...dialogs]);
+
+    const updatedDialog = {
+      ...selectedDialog,
+      occupants_ids: Array.from(new Set([...selectedDialog.occupants_ids, ...usersIds])),
+    };
+
+    setDialogs((prevDialogs) => prevDialogs.map((d) => (d._id === dialogId ? updatedDialog : d)));
+    setSelectedDialog(updatedDialog);
   };
 
   const removeUsersFromGroupChat = async (usersIds: number[]): Promise<void> => {
@@ -293,10 +282,13 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       });
 
     // update store
-    const updatedDialog = _findDialog(selectedDialog._id);
-    updatedDialog.occupants_ids = updatedDialog.occupants_ids.filter((userId) => !usersIds.includes(userId));
-    setSelectedDialog({ ...updatedDialog });
-    setDialogs([...dialogs]);
+    const updatedDialog = {
+      ...selectedDialog,
+      occupants_ids: selectedDialog.occupants_ids.filter((userId) => !usersIds.includes(userId)),
+    };
+
+    setDialogs((prevDialogs) => prevDialogs.map((d) => (d._id === dialogId ? updatedDialog : d)));
+    setSelectedDialog(updatedDialog);
   };
 
   const leaveGroupChat = async (): Promise<void> => {
@@ -369,12 +361,13 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     // send
     const messageId = _sendMessage("Attachment", uploadedAttachments, dialog, opponentId);
 
-    // update message in store (update it and file url)
-    const msg = messagesRef.current[dialog._id].find((msg) => msg._id === tempId) as Messages.Message;
-    msg._id = messageId;
-    msg.attachments = attachments;
-    msg.isLoading = false;
-    setMessages({ ...messagesRef.current });
+    // update message in store
+    setMessages((prevMessages) => ({
+      ...prevMessages,
+      [dialog._id]: prevMessages[dialog._id].map((msg) =>
+        msg._id === tempId ? { ...msg, _id: messageId, attachments, isLoading: false } : msg,
+      ),
+    }));
   };
 
   const _sendMessage = (
@@ -411,29 +404,34 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   ) => {
     const ts = Math.round(new Date().getTime() / 1000);
 
-    // update dialog
-    const dialog = _findDialog(dialogId);
-    dialog.last_message = body;
-    dialog.last_message_user_id = senderId;
-    dialog.last_message_date_sent = ts;
-    setDialogs(
-      [...dialogsRef.current].sort((a, b) => {
-        const dateA = parseDate(a.last_message_date_sent) || (parseDate(a.created_at) as number);
-        const dateB = parseDate(b.last_message_date_sent) || (parseDate(b.created_at) as number);
-
-        return dateB - dateA; // Sort in ascending order
-      }),
+    setDialogs((prevDialogs) =>
+      prevDialogs
+        .map((dialog) =>
+          dialog._id === dialogId
+            ? {
+                ...dialog,
+                last_message: body,
+                last_message_user_id: senderId,
+                last_message_date_sent: ts,
+              }
+            : dialog,
+        )
+        .sort((a, b) => {
+          const dateA = parseDate(a.last_message_date_sent) || (parseDate(a.created_at) as number);
+          const dateB = parseDate(b.last_message_date_sent) || (parseDate(b.created_at) as number);
+          return dateB - dateA;
+        }),
     );
 
-    setMessages({
-      ...(messagesRef.current || {}),
-      [dialog._id]: [
-        ...(messagesRef.current[dialog._id] || {}),
+    setMessages((prevMessages) => ({
+      ...prevMessages,
+      [dialogId]: [
+        ...(prevMessages[dialogId] || []),
         {
           _id: messageId,
           created_at: ts,
           updated_at: ts,
-          chat_dialog_id: dialog._id,
+          chat_dialog_id: dialogId,
           message: body,
           sender_id: senderId,
           recipient_id: recipientId as any,
@@ -447,7 +445,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           isLoading,
         },
       ],
-    });
+    }));
   };
 
   const readMessage = (messageId: string, userId: number, dialogId: string) => {
@@ -457,19 +455,23 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       dialogId,
     });
 
-    // update store
-    messages[dialogId].forEach((message) => {
-      if (message._id === messageId) {
-        message.read = 1;
-        const dialog = _findDialog(dialogId);
-        if (dialog) {
-          dialog.unread_messages_count >= 1 ? dialog.unread_messages_count-- : 0;
-        }
+    setMessages((prevMessages) => ({
+      ...prevMessages,
+      [dialogId]: prevMessages[dialogId].map((message) =>
+        message._id === messageId ? { ...message, read: 1 } : message,
+      ),
+    }));
 
-        setDialogs([...dialogs]);
-      }
-    });
-    setMessages({ ...messages });
+    setDialogs((prevDialogs) =>
+      prevDialogs.map((dialog) =>
+        dialog._id === dialogId
+          ? {
+              ...dialog,
+              unread_messages_count: Math.max(0, dialog.unread_messages_count - 1),
+            }
+          : dialog,
+      ),
+    );
   };
 
   const _notifyUsers = (command: string, dialogId: string, userId: number, params: any = {}) => {
@@ -517,11 +519,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     });
   };
 
-  const processOnMessage = (callbackFn: Chat.OnMessageListener) => {
+  const processOnMessage = (callbackFn: Chat.OnMessageListener | null) => {
     onMessageRef.current = callbackFn;
   };
 
-  const processOnMessageError = (callbackFn: Chat.OnMessageErrorListener) => {
+  const processOnMessageError = (callbackFn: Chat.OnMessageErrorListener | null) => {
     onMessageErrorRef.current = callbackFn;
   };
 
@@ -589,17 +591,21 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       _addMessageToStore(messageId, body, dialogId, userId, opponentId, attachments);
 
       // updates chats store
-      setDialogs((prevDialogs) => {
-        const dialog = _findDialog(dialogId);
-
-        if (!selectedDialog || selectedDialog._id !== message.dialog_id) {
-          dialog.unread_messages_count = (dialog.unread_messages_count || 0) + 1;
-        }
-        dialog.last_message = message.body;
-        dialog.last_message_date_sent = parseInt(message.extension.date_sent);
-
-        return [...prevDialogs];
-      });
+      setDialogs((prevDialogs) =>
+        prevDialogs.map((dialog) =>
+          dialog._id === dialogId
+            ? {
+                ...dialog,
+                unread_messages_count:
+                  !selectedDialog || selectedDialog._id !== message.dialog_id
+                    ? (dialog.unread_messages_count || 0) + 1
+                    : dialog.unread_messages_count,
+                last_message: message.body,
+                last_message_date_sent: parseInt(message.extension.date_sent),
+              }
+            : dialog,
+        ),
+      );
 
       if (onMessageRef.current) {
         onMessageRef.current(userId, message);
@@ -632,48 +638,49 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
           _retrieveAndStoreUsers(dialog.occupants_ids);
 
-          setDialogs((prevDialogs) => {
-            return [dialog, ...prevDialogs];
-          });
+          setDialogs((prevDialogs) => [dialog, ...prevDialogs.filter((d) => d._id !== dialog._id)]);
 
           break;
         }
         // when someone added new participants to the chat
         case GroupChatEventType.ADD_PARTICIPANTS: {
-          const usersIds = message.extension.addedParticipantsIds.split(",").map(Number);
+          const usersIds = message.extension.addedParticipantsIds.split(",").map(Number) as number[];
           _retrieveAndStoreUsers(usersIds);
-          const dialog = _findDialog(dialogId);
 
-          setDialogs((prevDialogs) => {
-            dialog.occupants_ids = dialog.occupants_ids.concat(usersIds);
-            return [dialog, ...prevDialogs];
-          });
+          setDialogs((prevDialogs) =>
+            prevDialogs.map((d) => {
+              if (d._id === dialogId) {
+                d.occupants_ids = Array.from(new Set([...d.occupants_ids, ...usersIds]));
+              }
+              return d;
+            }),
+          );
           break;
         }
         // when someone removed participants from chat
         case GroupChatEventType.REMOVE_PARTICIPANTS: {
           const usersIds = message.extension.removedParticipantsIds.split(",").map(Number);
-          const dialog = _findDialog(dialogId);
 
-          setDialogs((prevDialogs) => {
-            dialog.occupants_ids = dialog.occupants_ids.filter((id) => {
-              return !usersIds.includes(id);
-            });
-            return [dialog, ...prevDialogs];
-          });
+          setDialogs((prevDialogs) =>
+            prevDialogs.map((d) => {
+              if (d._id === dialogId) {
+                d.occupants_ids = d.occupants_ids.filter((id) => !usersIds.includes(id));
+              }
+              return d;
+            }),
+          );
           break;
         }
         // when other user left the chat
         case GroupChatEventType.REMOVED_FROM_DIALOG: {
-          const usersIds = [senderId];
-          const dialog = _findDialog(dialogId);
-
-          setDialogs((prevDialogs) => {
-            dialog.occupants_ids = dialog.occupants_ids.filter((id) => {
-              return !usersIds.includes(id);
-            });
-            return [dialog, ...prevDialogs];
-          });
+          setDialogs((prevDialogs) =>
+            prevDialogs.map((d) => {
+              if (d._id === dialogId) {
+                d.occupants_ids = d.occupants_ids.filter((id) => id !== senderId);
+              }
+              return d;
+            }),
+          );
           break;
         }
       }
