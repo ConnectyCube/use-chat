@@ -34,7 +34,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
   const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
   // internal hooks
-  const blockList = useBlockList(isConnected);
+  const chatBlockList = useBlockList(isConnected);
   const chatUsers = useUsers(currentUserId);
   const { _retrieveAndStoreUsers } = chatUsers;
 
@@ -759,8 +759,8 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         messageSentTimeString,
         processOnMessage,
         processOnMessageError,
-        ...chatUsers,
-        ...blockList,
+        ...chatBlockList,
+        ...chatUsers.exports,
       }}
     >
       {children}

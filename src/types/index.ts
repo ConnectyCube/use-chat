@@ -1,13 +1,13 @@
 import { Chat, Dialogs, Messages } from "connectycube/types";
 import { ReactNode } from "react";
 import { BlockListHook } from "../hooks/useBlockList";
-import { UsersHook } from "../hooks/useUsers";
+import { UsersHookExports } from "../hooks/useUsers";
 
 export interface ChatProviderType {
   children?: ReactNode;
 }
 
-export interface ChatContextType extends BlockListHook, UsersHook {
+export interface ChatContextType extends BlockListHook, UsersHookExports {
   isOnline: boolean;
   connect: (credentials: Chat.ConnectionParams) => Promise<void>;
   isConnected: boolean;

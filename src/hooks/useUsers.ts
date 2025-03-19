@@ -12,7 +12,7 @@ export type UsersArray = Users.User[];
 export type UsersObject = { [userId: Users.User["id"]]: Users.User };
 export type UsersLastActivity = { [userId: number]: string };
 
-export type UsersHook = {
+export type UsersHookExports = {
   users: UsersObject;
   searchUsers: (term: string) => Promise<UsersArray>;
   listOnlineUsers: (params?: Users.ListOnlineParams, force?: boolean) => Promise<UsersArray>;
@@ -20,11 +20,12 @@ export type UsersHook = {
   getLastActivity: (userId: number) => Promise<string>;
 };
 
-export type UsersInternalHook = UsersHook & {
+export type UsersHook = {
+  exports: UsersHookExports;
   _retrieveAndStoreUsers: (usersIds: number[]) => Promise<void>;
 };
 
-function useUsers(currentUserId?: number): UsersInternalHook {
+function useUsers(currentUserId?: number): UsersHook {
   const [users, setUsers, usersRef] = useStateRef<UsersObject>({});
   const [onlineUsers, setOnlineUsers] = useState<UsersObject>({});
   const [lastActivity, setLastActivity] = useState<UsersLastActivity>({});
@@ -145,12 +146,14 @@ function useUsers(currentUserId?: number): UsersInternalHook {
   };
 
   return {
-    users,
-    searchUsers,
-    listOnlineUsers,
-    lastActivity,
-    getLastActivity,
     _retrieveAndStoreUsers,
+    exports: {
+      users,
+      searchUsers,
+      listOnlineUsers,
+      lastActivity,
+      getLastActivity,
+    },
   };
 }
 
