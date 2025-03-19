@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ChatContextType, ChatProviderType, GroupChatEventType } from "./types";
-import { Chat, Dialogs, Messages } from "connectycube/types";
+import { Chat, Dialogs, DialogType, Messages } from "connectycube/types";
 import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
 import { formatDistanceToNow } from "date-fns";
@@ -675,7 +675,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         case GroupChatEventType.REMOVED_FROM_DIALOG: {
           setDialogs((prevDialogs) =>
             prevDialogs.map((d) => {
-              if (d._id === dialogId) {
+              if (d._id === dialogId && d.type !== DialogType.PRIVATE) {
                 d.occupants_ids = d.occupants_ids.filter((id) => id !== senderId);
               }
               return d;

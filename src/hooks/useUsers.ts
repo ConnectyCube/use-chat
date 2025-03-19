@@ -63,10 +63,13 @@ function useUsers(currentUserId?: number): UsersInternalHook {
         login: { start_with: term },
         limit: GET_REQUEST_LIMIT,
       });
-      const users: Set<Users.User> = new Set([...usersWithFullName, ...usersWithLogin]);
-      const result = Array.from(users).filter((user) => user.id !== currentUserId);
+      const usersMap: Map<number, Users.User> = new Map();
 
-      return result;
+      [...usersWithFullName, ...usersWithLogin].forEach((user) => {
+        usersMap.set(user.id, user);
+      });
+
+      return Array.from(usersMap.values()).filter((user) => user.id !== currentUserId);
     },
     [currentUserId],
   );
