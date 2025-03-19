@@ -5,7 +5,11 @@
 ### Updates
 
 - Added support for node 22;
-- Upgraded `connectycube` >=4.2.2 to use import types and enums from "connectycube/types".
+- Upgraded `connectycube` >=4.2.2 to use import types and enums from "connectycube/types";
+
+### Bug fixes
+
+- users, dialogs and messages state management were refactored to prevent duplicates.
 
 ## 0.17.0
 

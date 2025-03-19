@@ -1,7 +1,7 @@
 {
   "name": "@connectycube/use-chat",
   "description": "A React hook for state management in ConnectyCube-powered chat solutions",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "homepage": "https://github.com/ConnectyCube/use-chat",
   "keywords": [
     "react",
@@ -43,7 +43,7 @@
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.2",
-    "@types/react": "^19.0.10",
+    "@types/react": "^19.0.11",
     "prettier": "^3.5.3",
     "rollup": "^4.36.0",
     "rollup-plugin-peer-deps-external": "^2.2.4",
