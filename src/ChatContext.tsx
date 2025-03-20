@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ChatContextType, ChatProviderType, GroupChatEventType, UnreadMessagesCount } from "./types";
-import { Chat, DateOrTimestamp, Dialogs, Messages, Users } from "connectycube/dist/types/types";
+import { Chat, DateOrTimestamp, Dialogs, Messages, Users } from "connectycube/types";
 import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
 import { formatDistanceToNow } from "date-fns";
@@ -181,7 +181,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
   };
 
-  const selectDialog = async (dialog: Dialogs.Dialog): Promise<void> => {
+  const selectDialog = async (dialog?: Dialogs.Dialog): Promise<void> => {
     setSelectedDialog(dialog);
     if (!dialog) {
       return;
@@ -641,11 +641,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     });
   };
 
-  const processOnMessage = (callbackFn: Chat.OnMessageListener) => {
+  const processOnMessage = (callbackFn: Chat.OnMessageListener | null) => {
     onMessageRef.current = callbackFn;
   };
 
-  const processOnMessageError = (callbackFn: Chat.OnMessageErrorListener) => {
+  const processOnMessageError = (callbackFn: Chat.OnMessageErrorListener | null) => {
     onMessageErrorRef.current = callbackFn;
   };
 
