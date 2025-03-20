@@ -44,6 +44,7 @@
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.2",
     "@types/react": "^19.0.10",
+    "@types/node": "^22.13.10",
     "prettier": "^3.5.3",
     "rollup": "^4.36.0",
     "rollup-plugin-peer-deps-external": "^2.2.4",
