@@ -1,10 +1,21 @@
 # Changelog
 
+## 0.18.0
+
+### Bug fixes
+
+- users, dialogs and messages state management were refactored to prevent duplicates.
+
+### Misc
+
+- Added support for node 22;
+- Upgraded `connectycube` >=4.2.2 to use import types and enums from "connectycube/types";
+
 ## 0.17.0
 
-### Updates
+### Misc
 
-- Block users API was optimized.
+- Optimize Block users API
 
 ## 0.16.0
 
