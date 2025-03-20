@@ -694,7 +694,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       }
 
       setMessages((prevMessages) => {
-        prevMessages[dialogId].forEach((message) => {
+        (prevMessages[dialogId] || []).forEach((message) => {
           if (message._id === messageId && message.read === 0) {
             message.read = 1;
             message.read_ids?.push(userId);
