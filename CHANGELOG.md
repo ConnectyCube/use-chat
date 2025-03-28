@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.19.0
+
+### Misc
+
+- The function `getOnlineUsersCount` is added to get the total count;
+- Returns states on `onlineUsers` and `onlineUsersCount`;
+
+### Updated
+
+- The function `listOnlineUsers` has been renamed to `listOnlineUsersWithParams` to reflect that it uses pagination parameters, such as "limit" and "offset";
+- The function `listOnlineUsers` can now handle multiple requests under the hood to retrieve all online users.
+
 ## 0.18.0
 
 ### Bug fixes
