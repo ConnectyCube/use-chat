@@ -5,6 +5,7 @@
 ### Misc
 
 - The function `getOnlineUsersCount` is added to get the total count;
+- Returns states on `onlineUsers` and `onlineUsersCount`;
 
 ### Updated
 
