@@ -17,7 +17,9 @@ export type UsersHookExports = {
   searchUsers: (term: string) => Promise<UsersArray>;
   listOnlineUsers: (force?: boolean) => Promise<UsersArray>;
   listOnlineUsersWithParams: (params: Users.ListOnlineParams) => Promise<UsersArray>;
+  onlineUsers: UsersArray;
   getOnlineUsersCount: () => Promise<number>;
+  onlineUsersCount: number;
   lastActivity: UsersLastActivity;
   getLastActivity: (userId: number) => Promise<string>;
 };
@@ -30,8 +32,9 @@ export type UsersHook = {
 function useUsers(currentUserId?: number): UsersHook {
   const [users, setUsers, usersRef] = useStateRef<UsersObject>({});
   const [onlineUsers, setOnlineUsers] = useState<UsersObject>({});
+  const [onlineUsersCount, setOnlineUsersCount] = useState<number>(0);
   const [lastActivity, setLastActivity] = useState<UsersLastActivity>({});
-  const onlineUsersCountRef = useRef<number>(0);
+
   const onlineUsersLastRequestAtRef = useRef<OnlineUsersLastRequestAt>(0);
 
   const _retrieveAndStoreUsers = async (usersIds: number[]): Promise<void> => {
@@ -74,14 +77,17 @@ function useUsers(currentUserId?: number): UsersHook {
   );
 
   const getOnlineUsersCount = async (): Promise<number> => {
+    let nextOnlineUsersCount = onlineUsersCount;
+
     try {
       const { count } = await ConnectyCube.users.getOnlineCount();
-      onlineUsersCountRef.current = count;
+      nextOnlineUsersCount = count;
+      setOnlineUsersCount(nextOnlineUsersCount);
     } catch (error) {
       console.error(`${USERS_LOG_TAG}[getOnlineCount][Error]:`, error);
     }
 
-    return onlineUsersCountRef.current;
+    return nextOnlineUsersCount;
   };
 
   const _listOnline = async (): Promise<UsersObject> => {
@@ -198,7 +204,9 @@ function useUsers(currentUserId?: number): UsersHook {
       searchUsers,
       listOnlineUsers,
       listOnlineUsersWithParams,
+      onlineUsers: Object.values(onlineUsers),
       getOnlineUsersCount,
+      onlineUsersCount,
       lastActivity,
       getLastActivity,
     },
