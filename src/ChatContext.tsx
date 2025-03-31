@@ -737,6 +737,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     ConnectyCube.chat.addListener(ChatEvent.SYSTEM_MESSAGE, _processSystemMessage);
     ConnectyCube.chat.addListener(ChatEvent.READ_MESSAGE, _processReadMessageStatus);
     ConnectyCube.chat.addListener(ChatEvent.TYPING_MESSAGE, _processTypingMessageStatus);
+
+    return () => {
+      ConnectyCube.chat.removeAllListeners();
+    };
   }, []);
 
   useEffect(() => {
