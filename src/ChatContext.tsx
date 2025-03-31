@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ChatContextType, ChatProviderType, GroupChatEventType } from "./types";
-import { Chat, Dialogs, DialogType, Messages } from "connectycube/types";
+import { Chat, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
 
 import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
@@ -61,7 +61,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
   const createChat = async (userId: number, extensions?: { [key: string]: any }): Promise<Dialogs.Dialog> => {
     const params = {
-      type: 3,
+      type: DialogType.PRIVATE,
       occupants_ids: [userId],
       extensions,
     };
@@ -82,7 +82,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     extensions?: { [key: string]: any },
   ): Promise<Dialogs.Dialog> => {
     const params = {
-      type: 2,
+      type: DialogType.GROUP,
       name,
       photo,
       occupants_ids: usersIds,
@@ -186,7 +186,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
     }
 
-    if (dialog.type !== 3) {
+    if (dialog.type !== DialogType.PRIVATE) {
       return undefined;
     }
     const opponentId = dialog.occupants_ids.filter((oId) => {
@@ -379,7 +379,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   ): string => {
     // send message
     const messageParams: Chat.MessageParams = {
-      type: dialog.type === 3 ? "chat" : "groupchat",
+      type: dialog.type === DialogType.PRIVATE ? ChatType.CHAT : ChatType.GROUPCHAT,
       body,
       extension: {
         save_to_history: 1,
@@ -389,7 +389,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     if (attachments) {
       messageParams.extension.attachments = attachments;
     }
-    const messageId = ConnectyCube.chat.send(dialog.type === 3 ? (opponentId as number) : dialog._id, messageParams);
+    const messageId = ConnectyCube.chat.send(
+      dialog.type === DialogType.PRIVATE ? (opponentId as number) : dialog._id,
+      messageParams,
+    );
 
     return messageId;
   };
@@ -493,7 +496,9 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
     }
 
-    ConnectyCube.chat.sendIsTypingStatus(dialog.type === 3 ? (getDialogOpponentId(dialog) as number) : dialog._id);
+    ConnectyCube.chat.sendIsTypingStatus(
+      dialog.type === DialogType.PRIVATE ? (getDialogOpponentId(dialog) as number) : dialog._id,
+    );
   };
 
   const _stopTyping = (userId: number, dialogId: string) => {
@@ -576,7 +581,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       const dialogId = message.dialog_id as string;
       const messageId = message.id;
       const body = message.body || "";
-      const opponentId = message.type === "chat" ? (currentUserIdRef.current as number) : undefined;
+      const opponentId = message.type === ChatType.CHAT ? (currentUserIdRef.current as number) : undefined;
 
       _stopTyping(userId, dialogId);
 
