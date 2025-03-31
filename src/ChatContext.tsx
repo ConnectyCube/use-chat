@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ChatContextType, ChatProviderType, GroupChatEventType } from "./types";
-import { Chat, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
+import { Chat, ChatEvent, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
 
 import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
@@ -564,170 +564,179 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     };
   }, []);
 
+  const _processDisconnect = () => {
+    setActivatedDialogs({});
+  };
+  const _processReconnect = () => {
+    console.log("[useChat] Reconnected");
+  };
+
+  const _processMessage = (userId: number, message: Chat.Message) => {
+    // TODO: handle multi-device
+    if (userId === currentUserIdRef.current) {
+      return;
+    }
+
+    const dialogId = message.dialog_id as string;
+    const messageId = message.id;
+    const body = message.body || "";
+    const opponentId = message.type === ChatType.CHAT ? (currentUserIdRef.current as number) : undefined;
+
+    _stopTyping(userId, dialogId);
+
+    const attachments =
+      message.extension.attachments?.length > 0
+        ? message.extension.attachments.map((attachment: Messages.Attachment) => ({
+            ...attachment,
+            url: ConnectyCube.storage.privateUrl(attachment.uid),
+          }))
+        : undefined;
+
+    // add message to store
+    _addMessageToStore(messageId, body, dialogId, userId, opponentId, attachments);
+
+    // updates chats store
+    setDialogs((prevDialogs) =>
+      prevDialogs.map((dialog) =>
+        dialog._id === dialogId
+          ? {
+              ...dialog,
+              unread_messages_count:
+                !selectedDialog || selectedDialog._id !== message.dialog_id
+                  ? (dialog.unread_messages_count || 0) + 1
+                  : dialog.unread_messages_count,
+              last_message: message.body,
+              last_message_date_sent: parseInt(message.extension.date_sent),
+            }
+          : dialog,
+      ),
+    );
+
+    if (onMessageRef.current) {
+      onMessageRef.current(userId, message);
+    }
+  };
+
+  const _processErrorMessage = (messageId: string, error: { code: number; info: string }) => {
+    if (onMessageErrorRef.current) {
+      onMessageErrorRef.current(messageId, error);
+    }
+  };
+
+  const _processSystemMessage = async (message: Chat.SystemMessage) => {
+    const dialogId = message.extension.dialogId;
+    const senderId = message.userId;
+
+    // TODO: handle multi-device
+    if (senderId === currentUserIdRef.current) {
+      return;
+    }
+
+    switch (message.body) {
+      // when someone created a new chat with you or added to chat
+      case GroupChatEventType.NEW_DIALOG:
+      case GroupChatEventType.ADDED_TO_DIALOG: {
+        const result = await ConnectyCube.chat.dialog.list({
+          _id: dialogId,
+        });
+        const dialog = result.items[0];
+
+        _retrieveAndStoreUsers(dialog.occupants_ids);
+
+        setDialogs((prevDialogs) => [dialog, ...prevDialogs.filter((d) => d._id !== dialog._id)]);
+
+        break;
+      }
+      // when someone added new participants to the chat
+      case GroupChatEventType.ADD_PARTICIPANTS: {
+        const usersIds = message.extension.addedParticipantsIds.split(",").map(Number) as number[];
+        _retrieveAndStoreUsers(usersIds);
+
+        setDialogs((prevDialogs) =>
+          prevDialogs.map((d) => {
+            if (d._id === dialogId) {
+              d.occupants_ids = Array.from(new Set([...d.occupants_ids, ...usersIds]));
+            }
+            return d;
+          }),
+        );
+        break;
+      }
+      // when someone removed participants from chat
+      case GroupChatEventType.REMOVE_PARTICIPANTS: {
+        const usersIds = message.extension.removedParticipantsIds.split(",").map(Number);
+
+        setDialogs((prevDialogs) =>
+          prevDialogs.map((d) => {
+            if (d._id === dialogId) {
+              d.occupants_ids = d.occupants_ids.filter((id) => !usersIds.includes(id));
+            }
+            return d;
+          }),
+        );
+        break;
+      }
+      // when other user left the chat
+      case GroupChatEventType.REMOVED_FROM_DIALOG: {
+        setDialogs((prevDialogs) =>
+          prevDialogs.map((d) => {
+            if (d._id === dialogId && d.type !== DialogType.PRIVATE) {
+              d.occupants_ids = d.occupants_ids.filter((id) => id !== senderId);
+            }
+            return d;
+          }),
+        );
+        break;
+      }
+    }
+  };
+
+  const _processReadMessageStatus = (messageId: string, dialogId: string, userId: number) => {
+    // TODO: handle multi-device
+    if (userId === currentUserIdRef.current) {
+      return;
+    }
+
+    setMessages((prevMessages) => {
+      (prevMessages[dialogId] || []).forEach((message) => {
+        if (message._id === messageId && message.read === 0) {
+          message.read = 1;
+          message.read_ids?.push(userId);
+        }
+      });
+      return prevMessages;
+    });
+  };
+
+  const _processTypingMessageStatus = (isTyping: boolean, userId: number, dialogId: string) => {
+    // TODO: handle multi-device
+    if (userId === currentUserIdRef.current) {
+      return;
+    }
+
+    setTypingStatus((prevTypingStatus) => ({
+      ...prevTypingStatus,
+      [dialogId]: { [userId]: isTyping },
+    }));
+
+    if (isTyping) {
+      typingTimers.current[dialogId + userId] = setTimeout(() => {
+        _stopTyping(userId, dialogId);
+      }, 5000);
+    } else {
+      clearTimeout(typingTimers.current[dialogId + userId]);
+    }
+  };
+
   // Chat callbacks
   useEffect(() => {
-    ConnectyCube.chat.onDisconnectedListener = () => {
-      setActivatedDialogs({});
-    };
-
-    // ConnectyCube.chat.onReconnectListener = () => {};
-
-    ConnectyCube.chat.onMessageListener = (userId: number, message: Chat.Message) => {
-      // TODO: handle multi-device
-      if (userId === currentUserIdRef.current) {
-        return;
-      }
-
-      const dialogId = message.dialog_id as string;
-      const messageId = message.id;
-      const body = message.body || "";
-      const opponentId = message.type === ChatType.CHAT ? (currentUserIdRef.current as number) : undefined;
-
-      _stopTyping(userId, dialogId);
-
-      const attachments =
-        message.extension.attachments?.length > 0
-          ? message.extension.attachments.map((attachment: Messages.Attachment) => ({
-              ...attachment,
-              url: ConnectyCube.storage.privateUrl(attachment.uid),
-            }))
-          : undefined;
-
-      // add message to store
-      _addMessageToStore(messageId, body, dialogId, userId, opponentId, attachments);
-
-      // updates chats store
-      setDialogs((prevDialogs) =>
-        prevDialogs.map((dialog) =>
-          dialog._id === dialogId
-            ? {
-                ...dialog,
-                unread_messages_count:
-                  !selectedDialog || selectedDialog._id !== message.dialog_id
-                    ? (dialog.unread_messages_count || 0) + 1
-                    : dialog.unread_messages_count,
-                last_message: message.body,
-                last_message_date_sent: parseInt(message.extension.date_sent),
-              }
-            : dialog,
-        ),
-      );
-
-      if (onMessageRef.current) {
-        onMessageRef.current(userId, message);
-      }
-    };
-
-    ConnectyCube.chat.onMessageErrorListener = (messageId: string, error: { code: number; info: string }) => {
-      if (onMessageErrorRef.current) {
-        onMessageErrorRef.current(messageId, error);
-      }
-    };
-
-    ConnectyCube.chat.onSystemMessageListener = async (message: Chat.SystemMessage) => {
-      const dialogId = message.extension.dialogId;
-      const senderId = message.userId;
-
-      // TODO: handle multi-device
-      if (senderId === currentUserIdRef.current) {
-        return;
-      }
-
-      switch (message.body) {
-        // when someone created a new chat with you or added to chat
-        case GroupChatEventType.NEW_DIALOG:
-        case GroupChatEventType.ADDED_TO_DIALOG: {
-          const result = await ConnectyCube.chat.dialog.list({
-            _id: dialogId,
-          });
-          const dialog = result.items[0];
-
-          _retrieveAndStoreUsers(dialog.occupants_ids);
-
-          setDialogs((prevDialogs) => [dialog, ...prevDialogs.filter((d) => d._id !== dialog._id)]);
-
-          break;
-        }
-        // when someone added new participants to the chat
-        case GroupChatEventType.ADD_PARTICIPANTS: {
-          const usersIds = message.extension.addedParticipantsIds.split(",").map(Number) as number[];
-          _retrieveAndStoreUsers(usersIds);
-
-          setDialogs((prevDialogs) =>
-            prevDialogs.map((d) => {
-              if (d._id === dialogId) {
-                d.occupants_ids = Array.from(new Set([...d.occupants_ids, ...usersIds]));
-              }
-              return d;
-            }),
-          );
-          break;
-        }
-        // when someone removed participants from chat
-        case GroupChatEventType.REMOVE_PARTICIPANTS: {
-          const usersIds = message.extension.removedParticipantsIds.split(",").map(Number);
-
-          setDialogs((prevDialogs) =>
-            prevDialogs.map((d) => {
-              if (d._id === dialogId) {
-                d.occupants_ids = d.occupants_ids.filter((id) => !usersIds.includes(id));
-              }
-              return d;
-            }),
-          );
-          break;
-        }
-        // when other user left the chat
-        case GroupChatEventType.REMOVED_FROM_DIALOG: {
-          setDialogs((prevDialogs) =>
-            prevDialogs.map((d) => {
-              if (d._id === dialogId && d.type !== DialogType.PRIVATE) {
-                d.occupants_ids = d.occupants_ids.filter((id) => id !== senderId);
-              }
-              return d;
-            }),
-          );
-          break;
-        }
-      }
-    };
-
-    ConnectyCube.chat.onReadStatusListener = (messageId: string, dialogId: string, userId: number) => {
-      // TODO: handle multi-device
-      if (userId === currentUserIdRef.current) {
-        return;
-      }
-
-      setMessages((prevMessages) => {
-        (prevMessages[dialogId] || []).forEach((message) => {
-          if (message._id === messageId && message.read === 0) {
-            message.read = 1;
-            message.read_ids?.push(userId);
-          }
-        });
-        return prevMessages;
-      });
-    };
-
-    ConnectyCube.chat.onMessageTypingListener = (isTyping: boolean, userId: number, dialogId: string) => {
-      // TODO: handle multi-device
-      if (userId === currentUserIdRef.current) {
-        return;
-      }
-
-      setTypingStatus((prevTypingStatus) => ({
-        ...prevTypingStatus,
-        [dialogId]: { [userId]: isTyping },
-      }));
-
-      if (isTyping) {
-        typingTimers.current[dialogId + userId] = setTimeout(() => {
-          _stopTyping(userId, dialogId);
-        }, 5000);
-      } else {
-        clearTimeout(typingTimers.current[dialogId + userId]);
-      }
-    };
+    ConnectyCube.chat.addListener(ChatEvent.DISCONNECTED, _processDisconnect);
+    ConnectyCube.chat.addListener(ChatEvent.RECONNECTED, _processReconnect);
+    ConnectyCube.chat.addListener(ChatEvent.MESSAGE, _processMessage);
+    ConnectyCube.chat.addListener(ChatEvent.ERROR_MESSAGE, _processErrorMessage);
+    ConnectyCube.chat.addListener(ChatEvent.SYSTEM_MESSAGE, _processSystemMessage);
+    ConnectyCube.chat.addListener(ChatEvent.READ_MESSAGE, _processReadMessageStatus);
+    ConnectyCube.chat.addListener(ChatEvent.TYPING_MESSAGE, _processTypingMessageStatus);
   }, []);
 
   useEffect(() => {

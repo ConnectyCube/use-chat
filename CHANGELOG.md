@@ -6,6 +6,7 @@
 
 - The function `getOnlineUsersCount` is added to get the total count;
 - Returns states on `onlineUsers` and `onlineUsersCount`;
+- Added `subscribeToUserLastActivityStatus(userId)` and `unsubscribeFromUserLastActivityStatus(userId)` to start/stop listen to an user last activity status and change the `lastActivity` state;
 
 ### Updated
 

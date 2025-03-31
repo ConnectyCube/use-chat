@@ -1,7 +1,8 @@
 import ConnectyCube from "connectycube";
-import { Users } from "connectycube/types";
-import { useCallback, useRef, useState } from "react";
+import { Chat, ChatEvent, Users } from "connectycube/types";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useStateRef from "react-usestateref";
+import { getLastActivityText } from "../helpers";
 
 export const USERS_LOG_TAG = "[useChat][useUsers]";
 export const LIST_ONLINE_USERS_INTERVAL = 60000;
@@ -22,6 +23,8 @@ export type UsersHookExports = {
   onlineUsersCount: number;
   lastActivity: UsersLastActivity;
   getLastActivity: (userId: number) => Promise<string>;
+  subscribeToUserLastActivityStatus: (userId: number) => void;
+  unsubscribeFromUserLastActivityStatus: (userId: number) => void;
 };
 
 export type UsersHook = {
@@ -158,44 +161,44 @@ function useUsers(currentUserId?: number): UsersHook {
   };
 
   const getLastActivity = async (userId: number): Promise<string> => {
+    let status = "Last seen recently";
+
     try {
-      const result = await ConnectyCube.chat.getLastUserActivity(userId);
-      const secondsAgo = result.seconds;
-      const lastLoggedInTime = new Date(Date.now() - secondsAgo * 1000);
-
-      let status;
-
-      if (secondsAgo <= 30) {
-        status = "Online";
-      } else if (secondsAgo < 3600) {
-        const minutesAgo = Math.ceil(secondsAgo / 60);
-        status = `Last seen ${minutesAgo} minutes ago`;
-      } else {
-        const hoursAgo = Math.ceil(secondsAgo / 3600);
-        const currentHour = new Date().getHours();
-
-        if (currentHour - hoursAgo <= 0) {
-          const day = lastLoggedInTime.getUTCDate();
-          const month = lastLoggedInTime.getMonth() + 1;
-          const year = lastLoggedInTime.getFullYear();
-          status = `Last seen ${day}/${month.toString().padStart(2, "0")}/${year}`;
-        } else {
-          status = `Last seen ${hoursAgo} hours ago`;
-        }
-      }
-
-      // Update last activity and trigger any necessary updates
-      lastActivity[userId] = status;
-      setLastActivity({ ...lastActivity });
-
-      return status;
+      const { seconds } = await ConnectyCube.chat.getLastUserActivity(userId);
+      status = getLastActivityText(seconds);
     } catch (error) {
-      const fallbackStatus = "Last seen recently";
-      lastActivity[userId] = fallbackStatus;
-      setLastActivity({ ...lastActivity });
-      return fallbackStatus;
+      console.error(`${USERS_LOG_TAG}[getLastActivity][Error]:`, error);
+    } finally {
+      setLastActivity((prevLastActivity) => ({ ...prevLastActivity, [userId]: status }));
+      return status;
     }
   };
+
+  const subscribeToUserLastActivityStatus = (userId: number): void => {
+    ConnectyCube.chat.subscribeToUserLastActivityStatus(userId);
+  };
+
+  const unsubscribeFromUserLastActivityStatus = (userId: number): void => {
+    ConnectyCube.chat.unsubscribeFromUserLastActivityStatus(userId);
+  };
+
+  useEffect(() => {
+    const processUserLastActivityChange = (
+      userId: Chat.LastActivity["userId"],
+      seconds: Chat.LastActivity["seconds"],
+    ) => {
+      if (typeof userId === "number" && seconds >= 0) {
+        const status = getLastActivityText(seconds);
+        setLastActivity((prevLastActivity) => ({ ...prevLastActivity, [userId]: status }));
+      }
+    };
+
+    ConnectyCube.chat.addListener(ChatEvent.USER_LAST_ACTIVITY, processUserLastActivityChange);
+
+    return () => {
+      ConnectyCube.chat.removeListener(ChatEvent.USER_LAST_ACTIVITY);
+    };
+  }, []);
 
   return {
     _retrieveAndStoreUsers,
@@ -209,6 +212,8 @@ function useUsers(currentUserId?: number): UsersHook {
       onlineUsersCount,
       lastActivity,
       getLastActivity,
+      subscribeToUserLastActivityStatus,
+      unsubscribeFromUserLastActivityStatus,
     },
   };
 }
