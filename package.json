@@ -46,7 +46,7 @@
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.2",
-    "@types/node": "^22.13.14",
+    "@types/node": "^22.13.16",
     "@types/react": "^19.0.12",
     "prettier": "^3.5.3",
     "rollup": "^4.38.0",
