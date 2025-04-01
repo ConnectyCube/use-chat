@@ -1,12 +1,16 @@
 import { DateOrTimestamp } from "connectycube/types";
 
 export const parseDate = (date: DateOrTimestamp): number | undefined => {
+  let result: number | undefined;
+
   if (typeof date === "string") {
-    return new Date(date).getTime();
+    const t = new Date(date).getTime();
+    result = isNaN(t) ? undefined : t;
   } else if (typeof date === "number") {
-    return date * 1000;
+    result = date * 1000;
   }
-  return undefined;
+
+  return result;
 };
 
 export const getLastActivityText = (seconds: number): string => {
