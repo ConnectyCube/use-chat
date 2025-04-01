@@ -12,24 +12,23 @@ export const parseDate = (date: DateOrTimestamp): number | undefined => {
 export const getLastActivityText = (seconds: number): string => {
   let status: string;
 
-  if (seconds <= 30) {
-    status = "Online";
-  } else if (seconds < 3600) {
-    const minutesAgo = Math.ceil(seconds / 60);
-    status = `Last seen ${minutesAgo} minutes ago`;
-  } else {
-    const hoursAgo = Math.ceil(seconds / 3600);
-    const currentHour = new Date().getHours();
+  const MINUTE_IN_SEC = 60;
+  const HOUR_IN_SEC = 3600;
+  const DAY_IN_SEC = 86400;
+  const ONLINE_IN_SEC = MINUTE_IN_SEC / 2;
 
-    if (currentHour - hoursAgo <= 0) {
-      const lastLoggedInTime = new Date(Date.now() - seconds * 1000);
-      const day = lastLoggedInTime.getUTCDate();
-      const month = lastLoggedInTime.getMonth() + 1;
-      const year = lastLoggedInTime.getFullYear();
-      status = `Last seen ${day}/${month.toString().padStart(2, "0")}/${year}`;
-    } else {
-      status = `Last seen ${hoursAgo} hours ago`;
-    }
+  if (seconds <= ONLINE_IN_SEC) {
+    status = "Online";
+  } else if (seconds < HOUR_IN_SEC) {
+    status = `Last seen ${Math.ceil(seconds / MINUTE_IN_SEC)} minutes ago`;
+  } else if (seconds < DAY_IN_SEC) {
+    status = `Last seen ${Math.ceil(seconds / HOUR_IN_SEC)} hours ago`;
+  } else {
+    const lastLoggedInTime = new Date(Date.now() - seconds * 1000);
+    const day = lastLoggedInTime.getUTCDate();
+    const month = (lastLoggedInTime.getMonth() + 1).toString().padStart(2, "0");
+    const year = lastLoggedInTime.getFullYear();
+    status = `Last seen ${day}/${month}/${year}`;
   }
 
   return status;
