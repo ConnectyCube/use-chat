@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.0
+
+### Updated
+
+- Refactored typing statuses, so the `typingStatus` state was replaced by `typingUsersIds` and includes users IDs who are typing in selected chat
+
 ## 0.19.0
 
 ### Features

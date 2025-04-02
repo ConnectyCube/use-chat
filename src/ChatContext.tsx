@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ChatContextType, ChatProviderType, GroupChatEventType } from "./types";
 import { Chat, ChatEvent, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
 
@@ -24,16 +24,17 @@ export const useChat = (): ChatContextType => {
 export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement => {
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [isConnected, setIsConnected] = useState(false);
-  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
   const [dialogs, setDialogs] = useState<Dialogs.Dialog[]>([]);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<ChatContextType["unreadMessagesCount"]>({ total: 0 });
-  const [selectedDialog, setSelectedDialog] = useState<Dialogs.Dialog | undefined>();
   const [messages, setMessages] = useState<{ [dialogId: string]: Messages.Message[] }>({});
-  const [typingStatus, setTypingStatus] = useState<{ [dialogId: string]: { [userId: string]: boolean } }>({});
+  const [typingUsersIds, setTypingUsersIds] = useState<number[]>([]);
   const [activatedDialogs, setActivatedDialogs] = useState<{ [dialogId: string]: boolean }>({});
-  const typingTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  const typingTimers = useRef<{ [userId: number | string]: NodeJS.Timeout }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
   const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
+  // state refs
+  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
+  const [selectedDialog, setSelectedDialog, selectedDialogRef] = useStateRef<Dialogs.Dialog | undefined>();
   // internal hooks
   const chatBlockList = useBlockList(isConnected);
   const chatUsers = useUsers(currentUserId);
@@ -164,6 +165,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const selectDialog = async (dialog?: Dialogs.Dialog): Promise<void> => {
+    _clearTypingUsersIds();
     setSelectedDialog(dialog);
     if (!dialog) {
       return;
@@ -393,6 +395,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       dialog.type === DialogType.PRIVATE ? (opponentId as number) : dialog._id,
       messageParams,
     );
+    sendTypingStatus(dialog, false);
 
     return messageId;
   };
@@ -490,24 +493,37 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     ConnectyCube.chat.sendSystemMessage(userId, msg);
   };
 
-  const sendTypingStatus = (dialog?: Dialogs.Dialog) => {
+  const sendTypingStatus = (dialog?: Dialogs.Dialog, isTyping: boolean = true) => {
     dialog ??= selectedDialog;
     if (!dialog) {
       throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
     }
 
-    ConnectyCube.chat.sendIsTypingStatus(
-      dialog.type === DialogType.PRIVATE ? (getDialogOpponentId(dialog) as number) : dialog._id,
-    );
+    const dialogOrUserId = dialog.type === DialogType.PRIVATE ? (getDialogOpponentId(dialog) as number) : dialog._id;
+
+    if (isTyping) {
+      ConnectyCube.chat.sendIsTypingStatus(dialogOrUserId);
+    } else {
+      ConnectyCube.chat.sendIsStopTypingStatus(dialogOrUserId);
+    }
   };
 
-  const _stopTyping = (userId: number, dialogId: string) => {
-    setTypingStatus((prevTypingStatus) => ({
-      ...prevTypingStatus,
-      [dialogId]: { [userId]: false },
-    }));
+  const _updateTypingUsersIds = (userId: number, isTyping: boolean) => {
+    setTypingUsersIds((prevState) => {
+      const nextState = new Set(prevState);
+      if (isTyping) {
+        nextState.add(userId);
+      } else {
+        nextState.delete(userId);
+      }
+      return [...nextState];
+    });
+  };
 
-    clearTimeout(typingTimers.current[dialogId + userId]);
+  const _clearTypingUsersIds = () => {
+    Object.keys(typingTimers.current).forEach((userId) => clearTimeout(typingTimers.current[userId]));
+    typingTimers.current = {};
+    setTypingUsersIds([]);
   };
 
   const lastMessageSentTimeString = (dialog: Dialogs.Dialog): string => {
@@ -567,6 +583,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const _processDisconnect = () => {
     setActivatedDialogs({});
   };
+
   const _processReconnect = () => {
     console.log("[useChat] Reconnected");
   };
@@ -577,12 +594,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       return;
     }
 
+    const currentDialog = selectedDialogRef.current;
     const dialogId = message.dialog_id as string;
     const messageId = message.id;
     const body = message.body || "";
     const opponentId = message.type === ChatType.CHAT ? (currentUserIdRef.current as number) : undefined;
-
-    _stopTyping(userId, dialogId);
 
     const attachments =
       message.extension.attachments?.length > 0
@@ -602,7 +618,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           ? {
               ...dialog,
               unread_messages_count:
-                !selectedDialog || selectedDialog._id !== message.dialog_id
+                !currentDialog || currentDialog._id !== message.dialog_id
                   ? (dialog.unread_messages_count || 0) + 1
                   : dialog.unread_messages_count,
               last_message: message.body,
@@ -708,23 +724,29 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     });
   };
 
-  const _processTypingMessageStatus = (isTyping: boolean, userId: number, dialogId: string) => {
+  const _processTypingMessageStatus = (isTyping: boolean, userId: number, dialogId: string | null) => {
+    const currentDialog = selectedDialogRef.current;
+    const isCurrentDialog = currentDialog
+      ? currentDialog.type === DialogType.PRIVATE
+        ? !dialogId && userId === getDialogOpponentId(currentDialog)
+        : dialogId === currentDialog?._id
+      : false;
+
     // TODO: handle multi-device
-    if (userId === currentUserIdRef.current) {
+    if (!isCurrentDialog || userId === currentUserIdRef.current) {
       return;
     }
 
-    setTypingStatus((prevTypingStatus) => ({
-      ...prevTypingStatus,
-      [dialogId]: { [userId]: isTyping },
-    }));
+    _updateTypingUsersIds(userId, isTyping);
 
     if (isTyping) {
-      typingTimers.current[dialogId + userId] = setTimeout(() => {
-        _stopTyping(userId, dialogId);
+      typingTimers.current[userId] = setTimeout(() => {
+        _updateTypingUsersIds(userId, false);
+        delete typingTimers.current[userId];
       }, 5000);
     } else {
-      clearTimeout(typingTimers.current[dialogId + userId]);
+      clearTimeout(typingTimers.current[userId]);
+      delete typingTimers.current[userId];
     }
   };
 
@@ -767,7 +789,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         createChat,
         createGroupChat,
         sendTypingStatus,
-        typingStatus,
+        typingUsersIds,
         sendMessageWithAttachment,
         markDialogAsRead,
         removeUsersFromGroupChat,

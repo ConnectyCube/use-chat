@@ -1,7 +1,7 @@
 {
   "name": "@connectycube/use-chat",
   "description": "A React hook for state management in ConnectyCube-powered chat solutions",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "homepage": "https://github.com/ConnectyCube/use-chat",
   "keywords": [
     "react",
