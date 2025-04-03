@@ -4,7 +4,7 @@
 
 ### Updated
 
-- Refactored typing statuses, so the `typingStatus` state was replaced by `typingUsersIds` and includes users IDs who are typing in selected chat
+- Refactored typing statuses, so the `typingStatus` state is an array with currently typing users for each dialogId as key
 
 ## 0.19.0
 
