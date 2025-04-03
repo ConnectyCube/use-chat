@@ -761,12 +761,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
 
     if (isTyping) {
+      // clear previous and run new timer
       if (typingTimers.current[_dialogId]?.[userId]) {
         clearTimeout(typingTimers.current[_dialogId][userId]);
-      } else {
-        typingTimers.current[_dialogId] = {};
+        delete typingTimers.current[_dialogId][userId];
       }
-
       typingTimers.current[_dialogId][userId] = setTimeout(() => {
         _clearTypingStatus(_dialogId, userId);
       }, 6000);
