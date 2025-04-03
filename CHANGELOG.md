@@ -1,16 +1,24 @@
 # Changelog
 
-## 0.19.0
-
-### Misc
-
-- The function `getOnlineUsersCount` is added to get the total count;
-- Returns states on `onlineUsers` and `onlineUsersCount`;
+## 0.20.0
 
 ### Updated
 
-- The function `listOnlineUsers` has been renamed to `listOnlineUsersWithParams` to reflect that it uses pagination parameters, such as "limit" and "offset";
-- The function `listOnlineUsers` can now handle multiple requests under the hood to retrieve all online users.
+- Refactored typing statuses, so the `typingStatus` state was replaced by `typingUsersIds` and includes users IDs who are typing in selected chat
+
+## 0.19.0
+
+### Features
+
+- Implemented `getOnlineUsersCount` function to get the total count of online users
+- `onlineUsers` and `onlineUsersCount` properties to get the state of online users
+- Implemented `subscribeToUserLastActivityStatus(userId)` and `unsubscribeFromUserLastActivityStatus(userId)` functions to start/stop listening to user last activity status
+- `lastActivity` property to get the state users last activity
+
+### Updated
+
+- The function `listOnlineUsers` has been renamed to `listOnlineUsersWithParams` to reflect pagination parameters, such as `limit` and `offset`
+- The function `listOnlineUsers` can now handle multiple requests under the hood to retrieve all online users
 
 ## 0.18.0
 
