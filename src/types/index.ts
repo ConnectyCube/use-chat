@@ -1,4 +1,4 @@
-import { Chat, Dialogs, Messages, Users } from "connectycube/types";
+import { Chat, Dialogs, Messages } from "connectycube/types";
 import { ReactNode } from "react";
 import { BlockListHook } from "../hooks/useBlockList";
 import { UsersHookExports } from "../hooks/useUsers";
@@ -35,10 +35,8 @@ export interface ChatContextType extends BlockListHook, UsersHookExports {
   sendMessage: (body: string, dialog?: Dialogs.Dialog) => void;
   sendMessageWithAttachment: (files: File[], dialog?: Dialogs.Dialog) => Promise<void>;
   readMessage: (messageId: string, userId: number, dialogId: string) => void;
-  sendTypingStatus: (dialog?: Dialogs.Dialog) => void;
-  typingStatus: {
-    [dialogId: string]: { [userId: string]: boolean };
-  };
+  sendTypingStatus: (dialog?: Dialogs.Dialog, isTyping?: boolean) => void;
+  typingStatus: { [dialogId: string]: number[] };
   lastMessageSentTimeString: (dialog: Dialogs.Dialog) => string;
   messageSentTimeString: (message: Messages.Message) => string;
   processOnMessage: (fn: Chat.OnMessageListener | null) => void;

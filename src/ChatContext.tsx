@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ChatContextType, ChatProviderType, GroupChatEventType } from "./types";
 import { Chat, ChatEvent, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
 
@@ -22,18 +22,22 @@ export const useChat = (): ChatContextType => {
 };
 
 export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement => {
+  // state
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [isConnected, setIsConnected] = useState(false);
-  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
-  const [dialogs, setDialogs] = useState<Dialogs.Dialog[]>([]);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<ChatContextType["unreadMessagesCount"]>({ total: 0 });
-  const [selectedDialog, setSelectedDialog] = useState<Dialogs.Dialog | undefined>();
   const [messages, setMessages] = useState<{ [dialogId: string]: Messages.Message[] }>({});
-  const [typingStatus, setTypingStatus] = useState<{ [dialogId: string]: { [userId: string]: boolean } }>({});
+  const [typingStatus, setTypingStatus] = useState<{ [dialogId: string]: number[] }>({});
   const [activatedDialogs, setActivatedDialogs] = useState<{ [dialogId: string]: boolean }>({});
-  const typingTimers = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  // refs
+  const typingTimers = useRef<{ [dialogId: string]: { [userId: number | string]: NodeJS.Timeout } }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
   const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
+  const privateDialogsIdsRef = useRef<{ [userId: number | string]: string }>({});
+  // state refs
+  const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
+  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
+  const [selectedDialog, setSelectedDialog, selectedDialogRef] = useStateRef<Dialogs.Dialog | undefined>();
   // internal hooks
   const chatBlockList = useBlockList(isConnected);
   const chatUsers = useUsers(currentUserId);
@@ -68,6 +72,8 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     const dialog = await ConnectyCube.chat.dialog.create(params);
 
     setDialogs((prevDialogs) => [dialog, ...prevDialogs.filter((d) => d._id !== dialog._id)]);
+
+    privateDialogsIdsRef.current[userId] = dialog._id;
 
     _notifyUsers(GroupChatEventType.NEW_DIALOG, dialog._id, userId);
     _retrieveAndStoreUsers([userId, currentUserId as number]);
@@ -192,6 +198,8 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     const opponentId = dialog.occupants_ids.filter((oId) => {
       return oId !== currentUserId;
     })[0];
+
+    privateDialogsIdsRef.current[opponentId] = dialog._id;
 
     return opponentId;
   };
@@ -332,7 +340,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     const opponentId = getDialogOpponentId(dialog);
     const tempId = Date.now() + "";
     const attachments = files.map((file, index) => ({
-      uid: `local:${tempId}:${index}`, // just for temporary
+      uid: `local-${tempId}-${index}`, // just for temporary
       type: file.type,
       url: URL.createObjectURL(file),
     }));
@@ -495,19 +503,47 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     if (!dialog) {
       throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
     }
-
     ConnectyCube.chat.sendIsTypingStatus(
       dialog.type === DialogType.PRIVATE ? (getDialogOpponentId(dialog) as number) : dialog._id,
     );
   };
 
-  const _stopTyping = (userId: number, dialogId: string) => {
-    setTypingStatus((prevTypingStatus) => ({
-      ...prevTypingStatus,
-      [dialogId]: { [userId]: false },
-    }));
+  const _updateTypingStatus = (dialogId: string, userId: number, isTyping: boolean) => {
+    setTypingStatus((prevTypingStatus) => {
+      const prevUsersIds = prevTypingStatus[dialogId];
+      const nextUsersIds = prevUsersIds ? new Set<number>(prevUsersIds) : new Set<number>();
 
-    clearTimeout(typingTimers.current[dialogId + userId]);
+      if (isTyping) {
+        nextUsersIds.add(userId);
+      } else {
+        nextUsersIds.delete(userId);
+      }
+
+      return { ...prevTypingStatus, [dialogId]: [...nextUsersIds] };
+    });
+  };
+
+  const _clearTypingStatus = (dialogId: string, userId: number) => {
+    _updateTypingStatus(dialogId, userId, false);
+    clearTimeout(typingTimers.current[dialogId][userId]);
+    delete typingTimers.current[dialogId][userId];
+  };
+
+  const _getPrivateDialogIdByUserId = (userId: number): string | undefined => {
+    let dialogId: string | undefined = privateDialogsIdsRef.current[userId];
+
+    if (!dialogId) {
+      const dialog = dialogsRef.current.find(
+        (dialog) => dialog.type === DialogType.PRIVATE && getDialogOpponentId(dialog) === userId,
+      );
+
+      if (dialog) {
+        dialogId = dialog._id;
+        privateDialogsIdsRef.current[userId] = dialogId;
+      }
+    }
+
+    return dialogId;
   };
 
   const lastMessageSentTimeString = (dialog: Dialogs.Dialog): string => {
@@ -567,6 +603,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const _processDisconnect = () => {
     setActivatedDialogs({});
   };
+
   const _processReconnect = () => {
     console.log("[useChat] Reconnected");
   };
@@ -577,12 +614,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       return;
     }
 
+    const currentDialog = selectedDialogRef.current;
     const dialogId = message.dialog_id as string;
     const messageId = message.id;
     const body = message.body || "";
     const opponentId = message.type === ChatType.CHAT ? (currentUserIdRef.current as number) : undefined;
-
-    _stopTyping(userId, dialogId);
 
     const attachments =
       message.extension.attachments?.length > 0
@@ -594,6 +630,8 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
     // add message to store
     _addMessageToStore(messageId, body, dialogId, userId, opponentId, attachments);
+    // clear typing status
+    _clearTypingStatus(dialogId, userId);
 
     // updates chats store
     setDialogs((prevDialogs) =>
@@ -602,7 +640,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           ? {
               ...dialog,
               unread_messages_count:
-                !selectedDialog || selectedDialog._id !== message.dialog_id
+                !currentDialog || currentDialog._id !== message.dialog_id
                   ? (dialog.unread_messages_count || 0) + 1
                   : dialog.unread_messages_count,
               last_message: message.body,
@@ -708,23 +746,31 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     });
   };
 
-  const _processTypingMessageStatus = (isTyping: boolean, userId: number, dialogId: string) => {
+  const _processTypingMessageStatus = (isTyping: boolean, userId: number, dialogId: string | null) => {
+    const _dialogId = dialogId || _getPrivateDialogIdByUserId(userId);
+
     // TODO: handle multi-device
-    if (userId === currentUserIdRef.current) {
+    if (!_dialogId || !userId || userId === currentUserIdRef.current) {
       return;
     }
 
-    setTypingStatus((prevTypingStatus) => ({
-      ...prevTypingStatus,
-      [dialogId]: { [userId]: isTyping },
-    }));
+    _updateTypingStatus(_dialogId, userId, isTyping);
+
+    if (!typingTimers.current[_dialogId]) {
+      typingTimers.current[_dialogId] = {};
+    }
 
     if (isTyping) {
-      typingTimers.current[dialogId + userId] = setTimeout(() => {
-        _stopTyping(userId, dialogId);
-      }, 5000);
+      // clear previous and run new timer
+      if (typingTimers.current[_dialogId]?.[userId]) {
+        clearTimeout(typingTimers.current[_dialogId][userId]);
+        delete typingTimers.current[_dialogId][userId];
+      }
+      typingTimers.current[_dialogId][userId] = setTimeout(() => {
+        _clearTypingStatus(_dialogId, userId);
+      }, 6000);
     } else {
-      clearTimeout(typingTimers.current[dialogId + userId]);
+      _clearTypingStatus(_dialogId, userId);
     }
   };
 

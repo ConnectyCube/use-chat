@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.0
+
+### Updated
+
+- Refactored typing statuses, so the `typingStatus` state is an array with currently typing users for each dialogId as key
+
 ## 0.19.0
 
 ### Features
