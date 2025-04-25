@@ -60,8 +60,7 @@ function useUsers(currentUserId?: number): UsersHook {
     const usersToFind = usersIds.filter((userId) => !users[userId]);
 
     if (usersToFind.length > 0) {
-      const params = { limit: MAX_REQUEST_LIMIT, id: { in: usersToFind } };
-      getAndStoreUsers(params);
+      await getAndStoreUsers({ limit: MAX_REQUEST_LIMIT, id: { in: usersToFind } });
     }
   };
 
