@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.21.0
+
+### Features
+
+- Implemented `getAndStoreUsers` method to retrieve user/users with [params](https://developers.connectycube.com/server/users#retrieve-users-v2) and store in state of **useChat** hook
+
 ## 0.20.0
 
 ### Updated

@@ -15,6 +15,7 @@ export type UsersLastActivity = { [userId: number]: string };
 
 export type UsersHookExports = {
   users: UsersObject;
+  getAndStoreUsers: (params: Users.GetV2Params) => Promise<Users.User[]>;
   searchUsers: (term: string) => Promise<UsersArray>;
   listOnlineUsers: (force?: boolean) => Promise<UsersArray>;
   listOnlineUsersWithParams: (params: Users.ListOnlineParams) => Promise<UsersArray>;
@@ -40,21 +41,27 @@ function useUsers(currentUserId?: number): UsersHook {
 
   const onlineUsersLastRequestAtRef = useRef<OnlineUsersLastRequestAt>(0);
 
+  const getAndStoreUsers = async (params: Users.GetV2Params): Promise<Users.User[]> => {
+    const { items } = await ConnectyCube.users.getV2(params);
+    const nextUsersState = items.reduce<UsersObject>(
+      (map, user) => {
+        map[user.id] = user;
+        return map;
+      },
+      { ...usersRef.current },
+    );
+
+    setUsers(nextUsersState);
+
+    return items;
+  };
+
   const _retrieveAndStoreUsers = async (usersIds: number[]): Promise<void> => {
     const usersToFind = usersIds.filter((userId) => !users[userId]);
 
     if (usersToFind.length > 0) {
       const params = { limit: MAX_REQUEST_LIMIT, id: { in: usersToFind } };
-      const { items } = await ConnectyCube.users.getV2(params);
-      const nextUsersState = items.reduce<UsersObject>(
-        (map, user) => {
-          map[user.id] = user;
-          return map;
-        },
-        { ...usersRef.current },
-      );
-
-      setUsers(nextUsersState);
+      getAndStoreUsers(params);
     }
   };
 
@@ -204,6 +211,7 @@ function useUsers(currentUserId?: number): UsersHook {
     _retrieveAndStoreUsers,
     exports: {
       users,
+      getAndStoreUsers,
       searchUsers,
       listOnlineUsers,
       listOnlineUsersWithParams,
