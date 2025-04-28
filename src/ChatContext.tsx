@@ -682,6 +682,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     const dialogId = message.extension.dialogId;
     const senderId = message.userId;
 
+    if (onSignalRef.current) {
+      onSignalRef.current(message);
+    }
+
     // TODO: handle multi-device
     if (senderId === currentUserIdRef.current) {
       return;
@@ -743,10 +747,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         );
         break;
       }
-    }
-
-    if (onSignalRef.current) {
-      onSignalRef.current(message);
     }
   };
 
