@@ -4,7 +4,10 @@
 
 ### Features
 
-- Implemented `getAndStoreUsers` method to retrieve user/users with [params](https://developers.connectycube.com/server/users#retrieve-users-v2) and store in state of **useChat** hook
+- Implemented `fetchUserById` method to retrieve and update a user in the store by their ID.
+- Implemented `getAndStoreUsers` method to retrieve users using [params](https://developers.connectycube.com/server/users#retrieve-users-v2) and store them in the state of the **useChat** hook.
+- Implemented `sendSignal` method to send a system message as a custom signal.
+- Implemented `processOnSignal` function to handle actions triggered by incoming signals from other users.
 
 ## 0.20.0
 

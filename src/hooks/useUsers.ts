@@ -1,13 +1,14 @@
 import ConnectyCube from "connectycube";
 import { Chat, ChatEvent, Users } from "connectycube/types";
 import { useCallback, useEffect, useRef, useState } from "react";
-import useStateRef from "react-usestateref";
 import { getLastActivityText } from "../helpers";
 
 export const USERS_LOG_TAG = "[useChat][useUsers]";
-export const LIST_ONLINE_USERS_INTERVAL = 60000;
+export const LIMIT_ONLINE_USERS_INTERVAL = 60000;
+export const LIMIT_FETCH_USER_INTERVAL = 30000;
 export const MAX_REQUEST_LIMIT = 100;
 
+export type FetchUsersLastRequestAt = { [userId: Users.User["id"]]: number };
 export type OnlineUsersLastRequestAt = number;
 export type UsersArray = Users.User[];
 export type UsersObject = { [userId: Users.User["id"]]: Users.User };
@@ -17,6 +18,7 @@ export type UsersHookExports = {
   users: UsersObject;
   getAndStoreUsers: (params: Users.GetV2Params) => Promise<Users.User[]>;
   searchUsers: (term: string) => Promise<UsersArray>;
+  fetchUserById: (id: Users.User["id"], force?: boolean) => Promise<Users.User>;
   listOnlineUsers: (force?: boolean) => Promise<UsersArray>;
   listOnlineUsersWithParams: (params: Users.ListOnlineParams) => Promise<UsersArray>;
   onlineUsers: UsersArray;
@@ -34,24 +36,30 @@ export type UsersHook = {
 };
 
 function useUsers(currentUserId?: number): UsersHook {
-  const [users, setUsers, usersRef] = useStateRef<UsersObject>({});
+  const [users, setUsers] = useState<UsersObject>({});
   const [onlineUsers, setOnlineUsers] = useState<UsersObject>({});
   const [onlineUsersCount, setOnlineUsersCount] = useState<number>(0);
   const [lastActivity, setLastActivity] = useState<UsersLastActivity>({});
 
   const onlineUsersLastRequestAtRef = useRef<OnlineUsersLastRequestAt>(0);
+  const fetchUsersLastRequestAtRef = useRef<FetchUsersLastRequestAt>({});
 
   const getAndStoreUsers = async (params: Users.GetV2Params): Promise<Users.User[]> => {
     const { items } = await ConnectyCube.users.getV2(params);
-    const nextUsersState = items.reduce<UsersObject>(
-      (map, user) => {
-        map[user.id] = user;
-        return map;
-      },
-      { ...usersRef.current },
+
+    setUsers((prevUsersState) =>
+      items.reduce<UsersObject>(
+        (map, user) => {
+          map[user.id] = user;
+          return map;
+        },
+        { ...prevUsersState },
+      ),
     );
 
-    setUsers(nextUsersState);
+    items.forEach((user) => {
+      fetchUsersLastRequestAtRef.current[user.id] = Date.now();
+    });
 
     return items;
   };
@@ -62,6 +70,27 @@ function useUsers(currentUserId?: number): UsersHook {
     if (usersToFind.length > 0) {
       await getAndStoreUsers({ limit: MAX_REQUEST_LIMIT, id: { in: usersToFind } });
     }
+  };
+
+  const fetchUserById = async (id: Users.User["id"], force: boolean = false): Promise<Users.User> => {
+    const lastRequestedAt = fetchUsersLastRequestAtRef.current[id] || 0;
+    const currentTimestamp = Date.now();
+    const shouldRequest = currentTimestamp - lastRequestedAt > LIMIT_FETCH_USER_INTERVAL;
+
+    let user = users[id];
+
+    if (shouldRequest || force) {
+      const result = await ConnectyCube.users.getV2({ id, limit: 1 });
+      const fetchedUser = result?.items?.[0];
+
+      if (fetchedUser) {
+        setUsers((prevState) => ({ ...prevState, [id]: fetchedUser }));
+        fetchUsersLastRequestAtRef.current[id] = Date.now();
+        user = fetchedUser;
+      }
+    }
+
+    return user;
   };
 
   const searchUsers = useCallback(
@@ -122,7 +151,7 @@ function useUsers(currentUserId?: number): UsersHook {
         return map;
       }, {});
 
-      setUsers({ ...usersRef.current, ...onlineUsersState });
+      setUsers((prevUsersState) => ({ ...prevUsersState, ...onlineUsersState }));
       setOnlineUsers(onlineUsersState);
     } catch (error) {
       console.error(`${USERS_LOG_TAG}[listOnline][Error]:`, error);
@@ -142,7 +171,7 @@ function useUsers(currentUserId?: number): UsersHook {
         return map;
       }, {});
 
-      setUsers({ ...usersRef.current, ...onlineUsersState });
+      setUsers((prevUsersState) => ({ ...prevUsersState, ...onlineUsersState }));
       setOnlineUsers(onlineUsersState);
     } catch (error) {
       console.error(`${USERS_LOG_TAG}[listOnlineWithParams][Error]:`, error);
@@ -154,7 +183,7 @@ function useUsers(currentUserId?: number): UsersHook {
   const listOnlineUsers = async (force: boolean = false): Promise<UsersArray> => {
     const lastRequestedAt = onlineUsersLastRequestAtRef.current;
     const currentTimestamp = Date.now();
-    const shouldRequest = currentTimestamp - lastRequestedAt > LIST_ONLINE_USERS_INTERVAL;
+    const shouldRequest = currentTimestamp - lastRequestedAt > LIMIT_ONLINE_USERS_INTERVAL;
 
     let onlineUsersState = onlineUsers;
 
@@ -212,6 +241,7 @@ function useUsers(currentUserId?: number): UsersHook {
       users,
       getAndStoreUsers,
       searchUsers,
+      fetchUserById,
       listOnlineUsers,
       listOnlineUsersWithParams,
       onlineUsers: Object.values(onlineUsers),

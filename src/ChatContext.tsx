@@ -32,6 +32,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   // refs
   const typingTimers = useRef<{ [dialogId: string]: { [userId: number | string]: NodeJS.Timeout } }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
+  const onSignalRef = useRef<Chat.OnMessageSystemListener | null>(null);
   const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
   const privateDialogsIdsRef = useRef<{ [userId: number | string]: string }>({});
   // state refs
@@ -498,6 +499,18 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     ConnectyCube.chat.sendSystemMessage(userId, msg);
   };
 
+  const sendSignal = (userIdOrIds: number | number[], signal: string, params: any = {}) => {
+    const receivers = Array.isArray(userIdOrIds) ? userIdOrIds : [userIdOrIds];
+    const msg = {
+      body: signal,
+      extension: params,
+    };
+
+    receivers.forEach((userId) => {
+      ConnectyCube.chat.sendSystemMessage(userId, msg);
+    });
+  };
+
   const sendTypingStatus = (dialog?: Dialogs.Dialog) => {
     dialog ??= selectedDialog;
     if (!dialog) {
@@ -563,6 +576,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
   const processOnMessage = (callbackFn: Chat.OnMessageListener | null) => {
     onMessageRef.current = callbackFn;
+  };
+
+  const processOnSignal = (callbackFn: Chat.OnMessageSystemListener | null) => {
+    onSignalRef.current = callbackFn;
   };
 
   const processOnMessageError = (callbackFn: Chat.OnMessageErrorListener | null) => {
@@ -727,6 +744,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         break;
       }
     }
+
+    if (onSignalRef.current) {
+      onSignalRef.current(message);
+    }
   };
 
   const _processReadMessageStatus = (messageId: string, dialogId: string, userId: number) => {
@@ -807,6 +828,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         unreadMessagesCount,
         getMessages,
         messages,
+        sendSignal,
         sendMessage,
         dialogs,
         getDialogs,
@@ -822,6 +844,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         readMessage,
         lastMessageSentTimeString,
         messageSentTimeString,
+        processOnSignal,
         processOnMessage,
         processOnMessageError,
         ...chatBlockList,

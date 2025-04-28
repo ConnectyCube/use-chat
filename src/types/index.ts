@@ -32,6 +32,7 @@ export interface ChatContextType extends BlockListHook, UsersHookExports {
   addUsersToGroupChat: (usersIds: number[]) => Promise<void>;
   removeUsersFromGroupChat: (usersIds: number[]) => Promise<void>;
   leaveGroupChat: () => Promise<void>;
+  sendSignal: (userIdOrIds: number | number[], signal: string, params?: any) => void;
   sendMessage: (body: string, dialog?: Dialogs.Dialog) => void;
   sendMessageWithAttachment: (files: File[], dialog?: Dialogs.Dialog) => Promise<void>;
   readMessage: (messageId: string, userId: number, dialogId: string) => void;
@@ -39,6 +40,7 @@ export interface ChatContextType extends BlockListHook, UsersHookExports {
   typingStatus: { [dialogId: string]: number[] };
   lastMessageSentTimeString: (dialog: Dialogs.Dialog) => string;
   messageSentTimeString: (message: Messages.Message) => string;
+  processOnSignal: (fn: Chat.OnMessageSystemListener | null) => void;
   processOnMessage: (fn: Chat.OnMessageListener | null) => void;
   processOnMessageError: (fn: Chat.OnMessageErrorListener | null) => void;
 }
