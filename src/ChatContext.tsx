@@ -626,6 +626,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const _processMessage = (userId: number, message: Chat.Message) => {
+    if (onMessageRef.current) {
+      onMessageRef.current(userId, message);
+    }
+
     // TODO: handle multi-device
     if (userId === currentUserIdRef.current) {
       return;
@@ -666,10 +670,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           : dialog,
       ),
     );
-
-    if (onMessageRef.current) {
-      onMessageRef.current(userId, message);
-    }
   };
 
   const _processErrorMessage = (messageId: string, error: { code: number; info: string }) => {
