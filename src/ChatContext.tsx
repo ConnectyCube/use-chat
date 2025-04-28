@@ -32,6 +32,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   // refs
   const typingTimers = useRef<{ [dialogId: string]: { [userId: number | string]: NodeJS.Timeout } }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
+  const onSignalRef = useRef<Chat.OnMessageSystemListener | null>(null);
   const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
   const privateDialogsIdsRef = useRef<{ [userId: number | string]: string }>({});
   // state refs
@@ -498,6 +499,18 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     ConnectyCube.chat.sendSystemMessage(userId, msg);
   };
 
+  const sendSignal = (userIdOrIds: number | number[], signal: string, params: any = {}) => {
+    const receivers = Array.isArray(userIdOrIds) ? userIdOrIds : [userIdOrIds];
+    const msg = {
+      body: signal,
+      extension: params,
+    };
+
+    receivers.forEach((userId) => {
+      ConnectyCube.chat.sendSystemMessage(userId, msg);
+    });
+  };
+
   const sendTypingStatus = (dialog?: Dialogs.Dialog) => {
     dialog ??= selectedDialog;
     if (!dialog) {
@@ -565,6 +578,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     onMessageRef.current = callbackFn;
   };
 
+  const processOnSignal = (callbackFn: Chat.OnMessageSystemListener | null) => {
+    onSignalRef.current = callbackFn;
+  };
+
   const processOnMessageError = (callbackFn: Chat.OnMessageErrorListener | null) => {
     onMessageErrorRef.current = callbackFn;
   };
@@ -609,6 +626,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const _processMessage = (userId: number, message: Chat.Message) => {
+    if (onMessageRef.current) {
+      onMessageRef.current(userId, message);
+    }
+
     // TODO: handle multi-device
     if (userId === currentUserIdRef.current) {
       return;
@@ -649,10 +670,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           : dialog,
       ),
     );
-
-    if (onMessageRef.current) {
-      onMessageRef.current(userId, message);
-    }
   };
 
   const _processErrorMessage = (messageId: string, error: { code: number; info: string }) => {
@@ -664,6 +681,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const _processSystemMessage = async (message: Chat.SystemMessage) => {
     const dialogId = message.extension.dialogId;
     const senderId = message.userId;
+
+    if (onSignalRef.current) {
+      onSignalRef.current(message);
+    }
 
     // TODO: handle multi-device
     if (senderId === currentUserIdRef.current) {
@@ -807,6 +828,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         unreadMessagesCount,
         getMessages,
         messages,
+        sendSignal,
         sendMessage,
         dialogs,
         getDialogs,
@@ -822,6 +844,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         readMessage,
         lastMessageSentTimeString,
         messageSentTimeString,
+        processOnSignal,
         processOnMessage,
         processOnMessageError,
         ...chatBlockList,
