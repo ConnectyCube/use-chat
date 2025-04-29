@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.23.0
+
+### Misc
+
+- Extended message statuses "wait", "sent", "read" and "lost"
+
+### Features
+
+- Implemented `chatStatus` state with "disconnected", "connecting" and "connected"
+- Implemented `processOnMessageSent` function to handle actions triggered by lost/sent message
 
 ## 0.22.0
 
