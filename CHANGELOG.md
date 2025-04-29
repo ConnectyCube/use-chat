@@ -1,5 +1,12 @@
 # Changelog
 
+
+## 0.22.0
+
+### Bug fixes
+
+- do not crash when receive typing for non existent chat
+
 ## 0.21.0
 
 ### Features
