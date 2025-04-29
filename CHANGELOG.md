@@ -5,7 +5,7 @@
 
 ### Bug fixes
 
-- do not crash when receive typing for non existent chat
+- do not crash when stop typing on received message for non existent chat
 
 ## 0.21.0
 
