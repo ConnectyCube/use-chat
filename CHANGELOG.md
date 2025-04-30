@@ -5,6 +5,7 @@
 ### Misc
 
 - Extended message statuses "wait", "sent", "read" and "lost"
+- Internal chat connection manager
 
 ### Features
 
