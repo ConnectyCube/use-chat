@@ -1,4 +1,4 @@
-import { createContext, use, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ChatContextType, ChatProviderType, ChatStatus, GroupChatEventType, MessageStatus } from "./types";
 import { Chat, ChatEvent, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
 
@@ -24,14 +24,13 @@ export const useChat = (): ChatContextType => {
 export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement => {
   // state
   const [isConnected, setIsConnected] = useState(false);
-  const [chatStatus, setChatStatus] = useState(ChatStatus.DISCONNECTED);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<ChatContextType["unreadMessagesCount"]>({ total: 0 });
   const [messages, setMessages] = useState<{ [dialogId: string]: Messages.Message[] }>({});
   const [typingStatus, setTypingStatus] = useState<{ [dialogId: string]: number[] }>({});
   const [activatedDialogs, setActivatedDialogs] = useState<{ [dialogId: string]: boolean }>({});
   // refs
-  const needForceReconnect = useRef<boolean>(false);
-  const reconnect = useRef<() => Promise<void> | undefined>(undefined);
+  const isReconnecting = useRef<boolean>(false);
+  const connectionParams = useRef<Chat.ConnectionParams | undefined>(undefined);
   const typingTimers = useRef<{ [dialogId: string]: { [userId: number | string]: NodeJS.Timeout } }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
   const onSignalRef = useRef<Chat.OnMessageSystemListener | null>(null);
@@ -42,6 +41,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
   const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
   const [selectedDialog, setSelectedDialog, selectedDialogRef] = useStateRef<Dialogs.Dialog | undefined>();
+  const [chatStatus, setChatStatus, chatStatusRef] = useStateRef(ChatStatus.DISCONNECTED);
   // internal hooks
   const chatBlockList = useBlockList(isConnected);
   const chatUsers = useUsers(currentUserId);
@@ -52,10 +52,12 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     setChatStatus(ChatStatus.CONNECTING);
     try {
       const _isConnected = await ConnectyCube.chat.connect(credentials);
+
       if (_isConnected) {
+        setChatStatus(ChatStatus.CONNECTED);
         setIsConnected(_isConnected);
         setCurrentUserId(credentials.userId);
-        reconnect.current = () => connect(credentials);
+        connectionParams.current = credentials;
       }
     } catch (error) {
       setChatStatus(ChatStatus.DISCONNECTED);
@@ -63,27 +65,38 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
   };
 
-  const disconnect = () => {
+  const disconnect = async () => {
     if (ConnectyCube.chat.isConnected) {
-      ConnectyCube.chat.disconnect();
+      await ConnectyCube.chat.disconnect();
       setIsConnected(false);
-      _markWaitMessagesAsLostInStore();
-      if (!needForceReconnect.current) {
-        setCurrentUserId(undefined);
-      }
+      setCurrentUserId(undefined);
     }
   };
 
-  const _establishChatConnection = async (online: boolean) => {
-    if (online && needForceReconnect.current) {
-      await reconnect.current?.();
-      needForceReconnect.current = false;
+  const _reconnect = async (online: boolean) => {
+    if (online) {
+      if (connectionParams.current && isReconnecting.current) {
+        try {
+          isReconnecting.current = false;
+          setChatStatus(ChatStatus.CONNECTING);
+          await ConnectyCube.chat.disconnect();
+          _markMessagesAsLostInStore();
+          const _isConnected = await ConnectyCube.chat.connect(connectionParams.current);
+          if (_isConnected) {
+            setChatStatus(ChatStatus.CONNECTED);
+          }
+        } catch (error) {
+          setChatStatus(ChatStatus.DISCONNECTED);
+          console.error(`Failed to reconnect due to ${error}`);
+        }
+      }
     } else {
       try {
-        await ConnectyCube.chat.pingWithTimeout();
+        await ConnectyCube.chat.pingWithTimeout(1000);
       } catch (error) {
-        await disconnect();
-        needForceReconnect.current = true;
+        isReconnecting.current = true;
+        setChatStatus(ChatStatus.DISCONNECTED);
+        _markMessagesAsLostInStore();
       }
     }
   };
@@ -400,7 +413,13 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       ...prevMessages,
       [dialog._id]: prevMessages[dialog._id].map((msg) =>
         msg._id === tempId
-          ? { ...msg, _id: messageId, attachments, isLoading: false, status: MessageStatus.WAIT }
+          ? {
+              ...msg,
+              _id: messageId,
+              attachments,
+              isLoading: false,
+              status: chatStatusRef.current === ChatStatus.CONNECTED ? MessageStatus.WAIT : MessageStatus.LOST,
+            }
           : msg,
       ),
     }));
@@ -482,7 +501,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           attachments: attachments ? attachments : [],
           reactions: {} as any,
           isLoading,
-          status: MessageStatus.WAIT,
+          status: chatStatusRef.current === ChatStatus.CONNECTED ? MessageStatus.WAIT : MessageStatus.LOST,
         },
       ],
     }));
@@ -491,24 +510,26 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const _updateMessageStatusInStore = (status: MessageStatus, messageId: string, dialogId: string, userId?: number) => {
     setMessages((prevMessages) => ({
       ...prevMessages,
-      [dialogId]: prevMessages[dialogId].map((message) =>
-        message._id === messageId
-          ? {
-              ...message,
-              read_ids: userId
-                ? message.read_ids
-                  ? [...new Set([...message.read_ids, userId])]
-                  : [userId]
-                : message.read_ids,
-              read: status === MessageStatus.READ ? 1 : message.read,
-              status,
-            }
-          : message,
-      ),
+      [dialogId]:
+        prevMessages[dialogId]?.map((message) =>
+          message._id === messageId
+            ? {
+                ...message,
+                read_ids: userId
+                  ? message.read_ids
+                    ? [...new Set([...message.read_ids, userId])]
+                    : [userId]
+                  : message.read_ids,
+                read: status === MessageStatus.READ ? 1 : message.read,
+                status:
+                  status === MessageStatus.SENT && message.status === MessageStatus.LOST ? message.status : status,
+              }
+            : message,
+        ) ?? [],
     }));
   };
 
-  const _markWaitMessagesAsLostInStore = () => {
+  const _markMessagesAsLostInStore = () => {
     setMessages((prevMessages) =>
       Object.fromEntries(
         Object.entries(prevMessages).map(([dialogId, messages]) => [
@@ -646,14 +667,13 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const _processDisconnect = () => {
-    setIsConnected(false);
-    setChatStatus(ChatStatus.DISCONNECTED);
-    setActivatedDialogs({});
+    if (!isReconnecting.current) {
+      setActivatedDialogs({});
+    }
   };
 
   const _processReconnect = () => {
-    setIsConnected(true);
-    console.log("[useChat] Reconnected");
+    setChatStatus(ChatStatus.CONNECTED);
   };
 
   const _processMessage = (userId: number, message: Chat.Message) => {
@@ -852,7 +872,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   }, [dialogs]);
 
   useEffect(() => {
-    _establishChatConnection(isOnline);
+    _reconnect(isOnline);
   }, [isOnline]);
 
   return (
