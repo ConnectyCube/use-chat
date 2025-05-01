@@ -29,8 +29,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const [typingStatus, setTypingStatus] = useState<{ [dialogId: string]: number[] }>({});
   const [activatedDialogs, setActivatedDialogs] = useState<{ [dialogId: string]: boolean }>({});
   // refs
-  const isReconnecting = useRef<boolean>(false);
-  const connectionParams = useRef<Chat.ConnectionParams | undefined>(undefined);
   const typingTimers = useRef<{ [dialogId: string]: { [userId: number | string]: NodeJS.Timeout } }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
   const onSignalRef = useRef<Chat.OnMessageSystemListener | null>(null);
@@ -50,6 +48,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
   const connect = async (credentials: Chat.ConnectionParams) => {
     setChatStatus(ChatStatus.CONNECTING);
+
     try {
       const _isConnected = await ConnectyCube.chat.connect(credentials);
 
@@ -57,7 +56,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         setChatStatus(ChatStatus.CONNECTED);
         setIsConnected(_isConnected);
         setCurrentUserId(credentials.userId);
-        connectionParams.current = credentials;
       }
     } catch (error) {
       setChatStatus(ChatStatus.DISCONNECTED);
@@ -70,33 +68,21 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       await ConnectyCube.chat.disconnect();
       setIsConnected(false);
       setCurrentUserId(undefined);
+      setChatStatus(ChatStatus.DISCONNECTED);
     }
   };
 
-  const _reconnect = async (online: boolean) => {
+  const _establishConnection = async (online: boolean) => {
     if (online) {
-      if (connectionParams.current && isReconnecting.current) {
-        try {
-          isReconnecting.current = false;
-          setChatStatus(ChatStatus.CONNECTING);
-          await ConnectyCube.chat.disconnect();
-          _markMessagesAsLostInStore();
-          const _isConnected = await ConnectyCube.chat.connect(connectionParams.current);
-          if (_isConnected) {
-            setChatStatus(ChatStatus.CONNECTED);
-          }
-        } catch (error) {
-          setChatStatus(ChatStatus.DISCONNECTED);
-          console.error(`Failed to reconnect due to ${error}`);
-        }
+      if (chatStatusRef.current === ChatStatus.DISCONNECTED) {
+        setChatStatus(ChatStatus.CONNECTING);
       }
     } else {
       try {
         await ConnectyCube.chat.pingWithTimeout(1000);
       } catch (error) {
-        isReconnecting.current = true;
-        setChatStatus(ChatStatus.DISCONNECTED);
-        _markMessagesAsLostInStore();
+        await (ConnectyCube.chat.xmppClient as any).socket?.end();
+        _processDisconnect();
       }
     }
   };
@@ -667,9 +653,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const _processDisconnect = () => {
-    if (!isReconnecting.current) {
+    if (chatStatusRef.current !== ChatStatus.CONNECTING) {
+      setChatStatus(ChatStatus.DISCONNECTED);
       setActivatedDialogs({});
     }
+    _markMessagesAsLostInStore();
   };
 
   const _processReconnect = () => {
@@ -872,7 +860,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   }, [dialogs]);
 
   useEffect(() => {
-    _reconnect(isOnline);
+    _establishConnection(isOnline);
   }, [isOnline]);
 
   return (
