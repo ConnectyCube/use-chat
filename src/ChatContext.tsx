@@ -1,11 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { ChatContextType, ChatProviderType, GroupChatEventType } from "./types";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { ChatContextType, ChatProviderType, ChatStatus, GroupChatEventType, MessageStatus } from "./types";
 import { Chat, ChatEvent, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
 
 import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
 import { formatDistanceToNow } from "date-fns";
-import { useBlockList, useUsers } from "./hooks";
+import { useBlockList, useNetworkStatus, useUsers } from "./hooks";
 import { parseDate } from "./helpers";
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -23,44 +23,81 @@ export const useChat = (): ChatContextType => {
 
 export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement => {
   // state
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [isConnected, setIsConnected] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<ChatContextType["unreadMessagesCount"]>({ total: 0 });
   const [messages, setMessages] = useState<{ [dialogId: string]: Messages.Message[] }>({});
   const [typingStatus, setTypingStatus] = useState<{ [dialogId: string]: number[] }>({});
   const [activatedDialogs, setActivatedDialogs] = useState<{ [dialogId: string]: boolean }>({});
   // refs
+  const isReconnecting = useRef<boolean>(false);
+  const connectionParams = useRef<Chat.ConnectionParams | undefined>(undefined);
   const typingTimers = useRef<{ [dialogId: string]: { [userId: number | string]: NodeJS.Timeout } }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
   const onSignalRef = useRef<Chat.OnMessageSystemListener | null>(null);
+  const onMessageSentRef = useRef<Chat.OnMessageSentListener | null>(null);
   const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
   const privateDialogsIdsRef = useRef<{ [userId: number | string]: string }>({});
   // state refs
   const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
   const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
   const [selectedDialog, setSelectedDialog, selectedDialogRef] = useStateRef<Dialogs.Dialog | undefined>();
+  const [chatStatus, setChatStatus, chatStatusRef] = useStateRef(ChatStatus.DISCONNECTED);
   // internal hooks
   const chatBlockList = useBlockList(isConnected);
   const chatUsers = useUsers(currentUserId);
+  const { isOnline } = useNetworkStatus();
   const { _retrieveAndStoreUsers } = chatUsers;
 
   const connect = async (credentials: Chat.ConnectionParams) => {
+    setChatStatus(ChatStatus.CONNECTING);
     try {
       const _isConnected = await ConnectyCube.chat.connect(credentials);
+
       if (_isConnected) {
+        setChatStatus(ChatStatus.CONNECTED);
         setIsConnected(_isConnected);
         setCurrentUserId(credentials.userId);
+        connectionParams.current = credentials;
       }
     } catch (error) {
+      setChatStatus(ChatStatus.DISCONNECTED);
       console.error(`Failed to connect due to ${error}`);
     }
   };
 
-  const disconnect = () => {
+  const disconnect = async () => {
     if (ConnectyCube.chat.isConnected) {
-      ConnectyCube.chat.disconnect();
-      setCurrentUserId(undefined);
+      await ConnectyCube.chat.disconnect();
       setIsConnected(false);
+      setCurrentUserId(undefined);
+    }
+  };
+
+  const _reconnect = async (online: boolean) => {
+    if (online) {
+      if (connectionParams.current && isReconnecting.current) {
+        try {
+          isReconnecting.current = false;
+          setChatStatus(ChatStatus.CONNECTING);
+          await ConnectyCube.chat.disconnect();
+          _markMessagesAsLostInStore();
+          const _isConnected = await ConnectyCube.chat.connect(connectionParams.current);
+          if (_isConnected) {
+            setChatStatus(ChatStatus.CONNECTED);
+          }
+        } catch (error) {
+          setChatStatus(ChatStatus.DISCONNECTED);
+          console.error(`Failed to reconnect due to ${error}`);
+        }
+      }
+    } else {
+      try {
+        await ConnectyCube.chat.pingWithTimeout(1000);
+      } catch (error) {
+        isReconnecting.current = true;
+        setChatStatus(ChatStatus.DISCONNECTED);
+        _markMessagesAsLostInStore();
+      }
     }
   };
 
@@ -156,7 +193,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
             ...attachment,
             url: ConnectyCube.storage.privateUrl(attachment.uid),
           }));
-          return { ...msg, attachments };
+          return { ...msg, attachments, status: msg.read ? MessageStatus.READ : MessageStatus.SENT };
         });
       setMessages((prevMessages) => ({ ...prevMessages, [dialogId]: retrievedMessages }));
       return retrievedMessages;
@@ -375,7 +412,15 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     setMessages((prevMessages) => ({
       ...prevMessages,
       [dialog._id]: prevMessages[dialog._id].map((msg) =>
-        msg._id === tempId ? { ...msg, _id: messageId, attachments, isLoading: false } : msg,
+        msg._id === tempId
+          ? {
+              ...msg,
+              _id: messageId,
+              attachments,
+              isLoading: false,
+              status: chatStatusRef.current === ChatStatus.CONNECTED ? MessageStatus.WAIT : MessageStatus.LOST,
+            }
+          : msg,
       ),
     }));
   };
@@ -456,9 +501,45 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           attachments: attachments ? attachments : [],
           reactions: {} as any,
           isLoading,
+          status: chatStatusRef.current === ChatStatus.CONNECTED ? MessageStatus.WAIT : MessageStatus.LOST,
         },
       ],
     }));
+  };
+
+  const _updateMessageStatusInStore = (status: MessageStatus, messageId: string, dialogId: string, userId?: number) => {
+    setMessages((prevMessages) => ({
+      ...prevMessages,
+      [dialogId]:
+        prevMessages[dialogId]?.map((message) =>
+          message._id === messageId
+            ? {
+                ...message,
+                read_ids: userId
+                  ? message.read_ids
+                    ? [...new Set([...message.read_ids, userId])]
+                    : [userId]
+                  : message.read_ids,
+                read: status === MessageStatus.READ ? 1 : message.read,
+                status:
+                  status === MessageStatus.SENT && message.status === MessageStatus.LOST ? message.status : status,
+              }
+            : message,
+        ) ?? [],
+    }));
+  };
+
+  const _markMessagesAsLostInStore = () => {
+    setMessages((prevMessages) =>
+      Object.fromEntries(
+        Object.entries(prevMessages).map(([dialogId, messages]) => [
+          dialogId,
+          messages.map((message) =>
+            message.status === MessageStatus.WAIT ? { ...message, status: MessageStatus.LOST } : message,
+          ),
+        ]),
+      ),
+    );
   };
 
   const readMessage = (messageId: string, userId: number, dialogId: string) => {
@@ -468,12 +549,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       dialogId,
     });
 
-    setMessages((prevMessages) => ({
-      ...prevMessages,
-      [dialogId]: prevMessages[dialogId].map((message) =>
-        message._id === messageId ? { ...message, read: 1 } : message,
-      ),
-    }));
+    _updateMessageStatusInStore(MessageStatus.READ, messageId, dialogId, userId);
 
     setDialogs((prevDialogs) =>
       prevDialogs.map((dialog) =>
@@ -586,43 +662,18 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     onMessageErrorRef.current = callbackFn;
   };
 
-  // Internet listeners
-  useEffect(() => {
-    const abortController1 = new AbortController();
-    const abortController2 = new AbortController();
-
-    window.addEventListener(
-      "online",
-      () => {
-        setIsOnline(true);
-      },
-      {
-        signal: abortController1.signal,
-      },
-    );
-    window.addEventListener(
-      "offline",
-      () => {
-        setIsOnline(false);
-        setActivatedDialogs({});
-      },
-      {
-        signal: abortController2.signal,
-      },
-    );
-
-    return () => {
-      abortController1.abort();
-      abortController2.abort();
-    };
-  }, []);
+  const processOnMessageSent = (callbackFn: Chat.OnMessageSentListener | null) => {
+    onMessageSentRef.current = callbackFn;
+  };
 
   const _processDisconnect = () => {
-    setActivatedDialogs({});
+    if (!isReconnecting.current) {
+      setActivatedDialogs({});
+    }
   };
 
   const _processReconnect = () => {
-    console.log("[useChat] Reconnected");
+    setChatStatus(ChatStatus.CONNECTED);
   };
 
   const _processMessage = (userId: number, message: Chat.Message) => {
@@ -675,6 +726,19 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const _processErrorMessage = (messageId: string, error: { code: number; info: string }) => {
     if (onMessageErrorRef.current) {
       onMessageErrorRef.current(messageId, error);
+    }
+  };
+
+  const _processSentMessage = (lost: Chat.MessageParams | null, sent?: Chat.MessageParams) => {
+    if (onMessageSentRef.current) {
+      onMessageSentRef.current(lost, sent);
+    }
+
+    const dialogId = sent?.extension.dialog_id;
+    const messageId = sent?.id;
+
+    if (dialogId && messageId) {
+      _updateMessageStatusInStore(MessageStatus.SENT, messageId, dialogId);
     }
   };
 
@@ -756,15 +820,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       return;
     }
 
-    setMessages((prevMessages) => {
-      (prevMessages[dialogId] || []).forEach((message) => {
-        if (message._id === messageId && message.read === 0) {
-          message.read = 1;
-          message.read_ids?.push(userId);
-        }
-      });
-      return prevMessages;
-    });
+    _updateMessageStatusInStore(MessageStatus.READ, messageId, dialogId, userId);
   };
 
   const _processTypingMessageStatus = (isTyping: boolean, userId: number, dialogId: string | null) => {
@@ -801,6 +857,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     ConnectyCube.chat.addListener(ChatEvent.RECONNECTED, _processReconnect);
     ConnectyCube.chat.addListener(ChatEvent.MESSAGE, _processMessage);
     ConnectyCube.chat.addListener(ChatEvent.ERROR_MESSAGE, _processErrorMessage);
+    ConnectyCube.chat.addListener(ChatEvent.SENT_MESSAGE, _processSentMessage);
     ConnectyCube.chat.addListener(ChatEvent.SYSTEM_MESSAGE, _processSystemMessage);
     ConnectyCube.chat.addListener(ChatEvent.READ_MESSAGE, _processReadMessageStatus);
     ConnectyCube.chat.addListener(ChatEvent.TYPING_MESSAGE, _processTypingMessageStatus);
@@ -814,12 +871,17 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     _updateUnreadMessagesCount();
   }, [dialogs]);
 
+  useEffect(() => {
+    _reconnect(isOnline);
+  }, [isOnline]);
+
   return (
     <ChatContext.Provider
       value={{
         isOnline,
-        connect,
         isConnected,
+        chatStatus,
+        connect,
         disconnect,
         currentUserId,
         selectDialog,
@@ -847,6 +909,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         processOnSignal,
         processOnMessage,
         processOnMessageError,
+        processOnMessageSent,
         ...chatBlockList,
         ...chatUsers.exports,
       }}
