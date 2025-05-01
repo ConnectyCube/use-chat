@@ -2,15 +2,16 @@ import { Chat, Dialogs, Messages } from "connectycube/types";
 import { ReactNode } from "react";
 import { BlockListHook } from "../hooks/useBlockList";
 import { UsersHookExports } from "../hooks/useUsers";
+import { NetworkStatusHook } from "../hooks/useNetworkStatus";
 
 export interface ChatProviderType {
   children?: ReactNode;
 }
 
-export interface ChatContextType extends BlockListHook, UsersHookExports {
-  isOnline: boolean;
-  connect: (credentials: Chat.ConnectionParams) => Promise<void>;
+export interface ChatContextType extends BlockListHook, UsersHookExports, NetworkStatusHook {
   isConnected: boolean;
+  chatStatus: ChatStatus;
+  connect: (credentials: Chat.ConnectionParams) => Promise<void>;
   disconnect: () => void;
   currentUserId?: number;
   createChat: (userId: number, extensions?: { [key: string]: any }) => Promise<Dialogs.Dialog>;
@@ -43,6 +44,7 @@ export interface ChatContextType extends BlockListHook, UsersHookExports {
   processOnSignal: (fn: Chat.OnMessageSystemListener | null) => void;
   processOnMessage: (fn: Chat.OnMessageListener | null) => void;
   processOnMessageError: (fn: Chat.OnMessageErrorListener | null) => void;
+  processOnMessageSent: (fn: Chat.OnMessageSentListener | null) => void;
 }
 
 export enum GroupChatEventType {
@@ -51,4 +53,17 @@ export enum GroupChatEventType {
   ADD_PARTICIPANTS = "dialog/ADD_PARTICIPANTS",
   REMOVE_PARTICIPANTS = "dialog/REMOVE_PARTICIPANTS",
   NEW_DIALOG = "dialog/NEW_DIALOG",
+}
+
+export enum MessageStatus {
+  WAIT = "wait",
+  LOST = "lost",
+  SENT = "sent",
+  READ = "read",
+}
+
+export enum ChatStatus {
+  DISCONNECTED = "disconnected",
+  CONNECTING = "connecting",
+  CONNECTED = "connected",
 }
