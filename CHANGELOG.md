@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.1
+
+### Misc
+
+- Methods `fetchUserById` and `getAndStoreUsers` also update existed `onlineUsers` state
+
 ## 0.23.0
 
 ### Misc
