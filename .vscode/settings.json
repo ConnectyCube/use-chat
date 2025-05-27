@@ -1,3 +1,7 @@
 {
-  "cSpell.words": ["privacylist"]
+  "cSpell.words": ["privacylist"],
+  "workbench.colorCustomizations": {
+    "minimap.background": "#00000000",
+    "scrollbar.shadow": "#00000000"
+  }
 }
