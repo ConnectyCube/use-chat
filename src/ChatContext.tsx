@@ -673,8 +673,8 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       onMessageRef.current(userId, message);
     }
 
-    // TODO: handle multi-device & delivered with delay (from offline)
-    if (userId === currentUserIdRef.current || message.delay) {
+    // TODO: handle multi-device & delivered private messages with delay (from offline)
+    if (userId === currentUserIdRef.current || (message.delay && message.type === ChatType.CHAT)) {
       return;
     }
 
