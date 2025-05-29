@@ -48,13 +48,10 @@ function useUsers(currentUserId?: number): UsersHook {
     const { items } = await ConnectyCube.users.getV2(params);
 
     setUsers((prevUsersState) =>
-      items.reduce<UsersObject>(
-        (map, user) => {
-          map[user.id] = user;
-          return map;
-        },
-        { ...prevUsersState },
-      ),
+      items.reduce<UsersObject>((map, user) => ({ ...map, [user.id]: user }), { ...prevUsersState }),
+    );
+    setOnlineUsers((prevState) =>
+      items.reduce<UsersObject>((map, user) => (map[user.id] ? { ...map, [user.id]: user } : map), { ...prevState }),
     );
 
     items.forEach((user) => {
@@ -85,6 +82,7 @@ function useUsers(currentUserId?: number): UsersHook {
 
       if (fetchedUser) {
         setUsers((prevState) => ({ ...prevState, [id]: fetchedUser }));
+        setOnlineUsers((prevState) => (prevState[id] ? { ...prevState, [id]: fetchedUser } : prevState));
         fetchUsersLastRequestAtRef.current[id] = Date.now();
         user = fetchedUser;
       }

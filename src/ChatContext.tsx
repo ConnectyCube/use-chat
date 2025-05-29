@@ -664,13 +664,17 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     setChatStatus(ChatStatus.CONNECTED);
   };
 
+  const _processConnectionError = (error?: unknown) => {
+    console.error("ConnectionError", error);
+  };
+
   const _processMessage = (userId: number, message: Chat.Message) => {
     if (onMessageRef.current) {
       onMessageRef.current(userId, message);
     }
 
-    // TODO: handle multi-device
-    if (userId === currentUserIdRef.current) {
+    // TODO: handle multi-device & delivered private messages with delay (from offline)
+    if (userId === currentUserIdRef.current || (message.delay && message.type === ChatType.CHAT)) {
       return;
     }
 
@@ -843,6 +847,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   useEffect(() => {
     ConnectyCube.chat.addListener(ChatEvent.DISCONNECTED, _processDisconnect);
     ConnectyCube.chat.addListener(ChatEvent.RECONNECTED, _processReconnect);
+    ConnectyCube.chat.addListener(ChatEvent.ERROR, _processConnectionError);
     ConnectyCube.chat.addListener(ChatEvent.MESSAGE, _processMessage);
     ConnectyCube.chat.addListener(ChatEvent.ERROR_MESSAGE, _processErrorMessage);
     ConnectyCube.chat.addListener(ChatEvent.SENT_MESSAGE, _processSentMessage);
