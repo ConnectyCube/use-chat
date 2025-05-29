@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.23.1
+
+### Misc
+
+- Methods `fetchUserById` and `getAndStoreUsers` also update existed `onlineUsers` state
+- Private messages from offline (delayed) will be ignored. These messages will be available in `processOnMessage`'s callback to process.
+
 ## 0.23.0
 
 ### Misc
