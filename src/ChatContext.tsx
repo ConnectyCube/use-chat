@@ -721,7 +721,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
   };
 
-  const _processSentMessage = (lost: Chat.MessageParams | null, sent?: Chat.MessageParams) => {
+  const _processSentMessage = (lost: Chat.MessageParams | null, sent: Chat.MessageParams | null) => {
     if (onMessageSentRef.current) {
       onMessageSentRef.current(lost, sent);
     }
