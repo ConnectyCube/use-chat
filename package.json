@@ -46,18 +46,18 @@
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.2",
-    "@types/node": "^22.15.28",
+    "@types/node": "^22.15.29",
     "@types/react": "^19.1.6",
     "prettier": "^3.5.3",
     "rollup": "^4.41.1",
     "rollup-plugin-peer-deps-external": "^2.2.4",
     "tslib": "^2.8.1",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.4",
-    "@vitest/coverage-v8": "^3.1.4"
+    "vitest": "^3.2.1",
+    "@vitest/coverage-v8": "^3.2.1"
   },
   "peerDependencies": {
-    "connectycube": ">=4.3.0",
+    "connectycube": "../js-sdk/packages/connectycube",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
   },
