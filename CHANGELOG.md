@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.24.0
+
+### Misc
+
+- Added method `getNextMessages` to get the next batch of messages for the dialog
+
 ## 0.23.2
 
 ### Misc
