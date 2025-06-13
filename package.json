@@ -57,7 +57,7 @@
     "vitest": "^3.2.3"
   },
   "peerDependencies": {
-    "connectycube": ">=4.4.0",
+    "connectycube": ">=4.5.0",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
   },

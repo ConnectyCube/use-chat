@@ -81,7 +81,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       try {
         await ConnectyCube.chat.pingWithTimeout(1000);
       } catch (error) {
-        await (ConnectyCube.chat.xmppClient as any).socket?.end();
+        await ConnectyCube.chat.stop();
         _processDisconnect();
       }
     }
@@ -706,7 +706,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       error?.text === "Password not verified" ||
       error?.name === "SASLError"
     ) {
-      await (ConnectyCube.chat.xmppClient as any).socket?.end();
+      await ConnectyCube.chat.stop();
       setChatStatus(ChatStatus.NOT_AUTHORIZED);
     } else {
       setChatStatus(ChatStatus.ERROR);
