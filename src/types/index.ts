@@ -67,4 +67,6 @@ export enum ChatStatus {
   DISCONNECTED = "disconnected",
   CONNECTING = "connecting",
   CONNECTED = "connected",
+  NOT_AUTHORIZED = "not-authorized",
+  ERROR = "error",
 }

@@ -693,8 +693,24 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     setChatStatus(ChatStatus.CONNECTED);
   };
 
-  const _processConnectionError = (error?: unknown) => {
-    console.error("ConnectionError", error);
+  const _processConnectionError = async (
+    error: {
+      name?: string;
+      text?: string;
+      condition?: string;
+      [key: string]: any;
+    } = {},
+  ) => {
+    if (
+      error?.condition === "not-authorized" ||
+      error?.text === "Password not verified" ||
+      error?.name === "SASLError"
+    ) {
+      await (ConnectyCube.chat.xmppClient as any).socket?.end();
+      setChatStatus(ChatStatus.NOT_AUTHORIZED);
+    } else {
+      setChatStatus(ChatStatus.ERROR);
+    }
   };
 
   const _processMessage = (userId: number, message: Chat.Message) => {

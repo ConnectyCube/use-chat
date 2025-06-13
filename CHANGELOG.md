@@ -2,9 +2,10 @@
 
 ## 0.24.0
 
-### Misc
+### Features
 
 - Added method `getNextMessages` to get the next batch of messages for the dialog
+- Implemented new statuses "not-authorized" and "error" for `chatStatus` state
 
 ## 0.23.2
 
@@ -29,7 +30,7 @@
 
 ### Features
 
-- Implemented `chatStatus` state with "disconnected", "connecting" and "connected"
+- Implemented `chatStatus` state with "disconnected", "connecting" and "connected" statuses
 - Implemented `processOnMessageSent` function to handle actions triggered by lost/sent message
 
 ## 0.22.0
