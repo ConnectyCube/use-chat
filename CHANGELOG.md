@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.0
+
+### Updated
+
+- uses `connectycube@4.5.0`
+
 ## 0.24.0
 
 ### Features

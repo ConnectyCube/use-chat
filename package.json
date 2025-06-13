@@ -1,7 +1,7 @@
 {
   "name": "@connectycube/use-chat",
   "description": "A React hook for state management in ConnectyCube-powered chat solutions",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "homepage": "https://github.com/ConnectyCube/use-chat",
   "keywords": [
     "react",
@@ -57,7 +57,7 @@
     "vitest": "^3.2.3"
   },
   "peerDependencies": {
-    "connectycube": ">=4.4.0",
+    "connectycube": ">=4.5.0",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
   },
