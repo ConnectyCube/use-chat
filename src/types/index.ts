@@ -28,6 +28,7 @@ export interface ChatContextType extends BlockListHook, UsersHookExports, Networ
   getDialogOpponentId: (dialog?: Dialogs.Dialog) => number | undefined;
   unreadMessagesCount: { total: number; [dialogId: string]: number };
   getMessages: (dialogId: string) => Promise<Messages.Message[]>;
+  getNextMessages: (dialogId: string) => Promise<Messages.Message[]>;
   messages: { [key: string]: Messages.Message[] };
   markDialogAsRead: (dialog: Dialogs.Dialog) => Promise<void>;
   addUsersToGroupChat: (usersIds: number[]) => Promise<void>;
@@ -66,4 +67,6 @@ export enum ChatStatus {
   DISCONNECTED = "disconnected",
   CONNECTING = "connecting",
   CONNECTED = "connected",
+  NOT_AUTHORIZED = "not-authorized",
+  ERROR = "error",
 }

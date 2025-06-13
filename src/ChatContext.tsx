@@ -160,13 +160,12 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     return fetchedDialogs;
   };
 
-  const getMessages = async (dialogId: string): Promise<Messages.Message[]> => {
-    const params = {
-      chat_dialog_id: dialogId,
-      sort_desc: "date_sent",
-      limit: 100,
-      skip: 0,
-    };
+  const _listMessagesByDialogId = async (
+    dialogId: string,
+    listParams: Messages.ListParams = {},
+  ): Promise<Messages.Message[]> => {
+    const params = { chat_dialog_id: dialogId, sort_desc: "date_sent", limit: 100, skip: 0, ...listParams };
+
     try {
       const result = await ConnectyCube.chat.message.list(params);
       // store messages
@@ -181,14 +180,44 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           }));
           return { ...msg, attachments, status: msg.read ? MessageStatus.READ : MessageStatus.SENT };
         });
-      setMessages((prevMessages) => ({ ...prevMessages, [dialogId]: retrievedMessages }));
       return retrievedMessages;
     } catch (error: any) {
       if (error.code === 404) {
         // dialog not found
-        setMessages((prevMessages) => ({ ...prevMessages, [dialogId]: [] }));
         return [];
       }
+      throw error;
+    }
+  };
+
+  const getMessages = async (dialogId: string): Promise<Messages.Message[]> => {
+    try {
+      const retrievedMessages = await _listMessagesByDialogId(dialogId);
+
+      setMessages((prevMessages) => ({ ...prevMessages, [dialogId]: retrievedMessages }));
+
+      return retrievedMessages;
+    } catch (error: any) {
+      throw error;
+    }
+  };
+
+  const getNextMessages = async (dialogId: string): Promise<Messages.Message[]> => {
+    const dialogMessages = messages[dialogId] ?? [];
+    const skip = dialogMessages.length;
+
+    if (skip < 100) {
+      return [];
+    }
+
+    try {
+      const retrievedMessages = await _listMessagesByDialogId(dialogId, { skip });
+      const allDialogMessages = [...retrievedMessages, ...dialogMessages];
+
+      setMessages((prevMessages) => ({ ...prevMessages, [dialogId]: allDialogMessages }));
+
+      return allDialogMessages;
+    } catch (error: any) {
       throw error;
     }
   };
@@ -664,8 +693,24 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     setChatStatus(ChatStatus.CONNECTED);
   };
 
-  const _processConnectionError = (error?: unknown) => {
-    console.error("ConnectionError", error);
+  const _processConnectionError = async (
+    error: {
+      name?: string;
+      text?: string;
+      condition?: string;
+      [key: string]: any;
+    } = {},
+  ) => {
+    if (
+      error?.condition === "not-authorized" ||
+      error?.text === "Password not verified" ||
+      error?.name === "SASLError"
+    ) {
+      await (ConnectyCube.chat.xmppClient as any).socket?.end();
+      setChatStatus(ChatStatus.NOT_AUTHORIZED);
+    } else {
+      setChatStatus(ChatStatus.ERROR);
+    }
   };
 
   const _processMessage = (userId: number, message: Chat.Message) => {
@@ -882,6 +927,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         getDialogOpponentId,
         unreadMessagesCount,
         getMessages,
+        getNextMessages,
         messages,
         sendSignal,
         sendMessage,
