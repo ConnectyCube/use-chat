@@ -11,8 +11,9 @@ export interface ChatProviderType {
 export interface ChatContextType extends BlockListHook, UsersHookExports, NetworkStatusHook {
   isConnected: boolean;
   chatStatus: ChatStatus;
-  connect: (credentials: Chat.ConnectionParams) => Promise<void>;
-  disconnect: () => void;
+  connect: (credentials: Chat.ConnectionParams) => Promise<boolean>;
+  disconnect: () => Promise<boolean>;
+  terminate: () => void;
   currentUserId?: number;
   createChat: (userId: number, extensions?: { [key: string]: any }) => Promise<Dialogs.Dialog>;
   createGroupChat: (

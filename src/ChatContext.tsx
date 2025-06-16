@@ -46,7 +46,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const { isOnline } = useNetworkStatus();
   const { _retrieveAndStoreUsers } = chatUsers;
 
-  const connect = async (credentials: Chat.ConnectionParams) => {
+  const connect = async (credentials: Chat.ConnectionParams): Promise<boolean> => {
     setChatStatus(ChatStatus.CONNECTING);
 
     try {
@@ -57,19 +57,32 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         setIsConnected(_isConnected);
         setCurrentUserId(credentials.userId);
       }
+      return _isConnected;
     } catch (error) {
       setChatStatus(ChatStatus.DISCONNECTED);
       console.error(`Failed to connect due to ${error}`);
+      return false;
     }
   };
 
-  const disconnect = async () => {
+  const disconnect = async (): Promise<boolean> => {
+    let disconnected = false;
+
     if (ConnectyCube.chat.isConnected) {
-      await ConnectyCube.chat.disconnect();
+      disconnected = await ConnectyCube.chat.disconnect();
       setIsConnected(false);
       setCurrentUserId(undefined);
+      setActivatedDialogs({});
       setChatStatus(ChatStatus.DISCONNECTED);
     }
+
+    return disconnected;
+  };
+
+  const terminate = (): void => {
+    ConnectyCube.chat.terminate();
+    setChatStatus(ChatStatus.DISCONNECTED);
+    _markMessagesAsLostInStore();
   };
 
   const _establishConnection = async (online: boolean) => {
@@ -81,8 +94,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       try {
         await ConnectyCube.chat.pingWithTimeout(1000);
       } catch (error) {
-        await ConnectyCube.chat.stop();
-        _processDisconnect();
+        terminate();
       }
     }
   };
@@ -706,8 +718,9 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       error?.text === "Password not verified" ||
       error?.name === "SASLError"
     ) {
-      await ConnectyCube.chat.stop();
       setChatStatus(ChatStatus.NOT_AUTHORIZED);
+      const isDisconnected = await disconnect();
+      if (!isDisconnected) terminate();
     } else {
       setChatStatus(ChatStatus.ERROR);
     }
@@ -921,6 +934,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         chatStatus,
         connect,
         disconnect,
+        terminate,
         currentUserId,
         selectDialog,
         selectedDialog,
