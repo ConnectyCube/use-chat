@@ -8,7 +8,7 @@
 
 ### Misc
 
-- Implemented `terminate` method to stop the chat connection with ability to reconnect
+- Implemented `terminate` method to stop the chat connection with the ability to reconnect
 - The _"SASLError: not-authorized"_ error tries to disconnect or terminate the chat connection
 
 ## 0.25.0
