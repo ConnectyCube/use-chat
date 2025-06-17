@@ -23,6 +23,8 @@ export interface ChatContextType extends BlockListHook, UsersHookExports, Networ
     extensions?: { [key: string]: any },
   ) => Promise<Dialogs.Dialog>;
   getDialogs: (filters?: Dialogs.ListParams) => Promise<Dialogs.Dialog[]>;
+  getNextDialogs: () => Promise<Dialogs.Dialog[]>;
+  totalDialogReached: boolean;
   dialogs: Dialogs.Dialog[];
   selectedDialog?: Dialogs.Dialog;
   selectDialog: (dialog?: Dialogs.Dialog) => Promise<void>;
@@ -30,6 +32,7 @@ export interface ChatContextType extends BlockListHook, UsersHookExports, Networ
   unreadMessagesCount: { total: number; [dialogId: string]: number };
   getMessages: (dialogId: string) => Promise<Messages.Message[]>;
   getNextMessages: (dialogId: string) => Promise<Messages.Message[]>;
+  totalMessagesReached: { [dialogId: string]: boolean };
   messages: { [key: string]: Messages.Message[] };
   markDialogAsRead: (dialog: Dialogs.Dialog) => Promise<void>;
   addUsersToGroupChat: (usersIds: number[]) => Promise<void>;
