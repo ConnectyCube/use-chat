@@ -35,12 +35,12 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const [selectedDialog, setSelectedDialog, selectedDialogRef] = useStateRef<Dialogs.Dialog | undefined>();
   const [chatStatus, setChatStatus, chatStatusRef] = useStateRef(ChatStatus.DISCONNECTED);
   // refs
-  const activatedDialogsRef = useRef<{ [dialogId: string]: boolean }>({});
   const typingTimers = useRef<{ [dialogId: string]: { [userId: number | string]: NodeJS.Timeout } }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
   const onSignalRef = useRef<Chat.OnMessageSystemListener | null>(null);
   const onMessageSentRef = useRef<Chat.OnMessageSentListener | null>(null);
   const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
+  const activatedDialogsRef = useRef<{ [dialogId: string]: boolean }>({});
   const privateDialogsIdsRef = useRef<{ [userId: number | string]: string }>({});
   // internal hooks
   const chatBlockList = useBlockList(isConnected);
@@ -75,12 +75,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     if (ConnectyCube.chat.isConnected) {
       disconnected = await ConnectyCube.chat.disconnect();
 
-      activatedDialogsRef.current = {};
-      setTotalDialogReached(false);
-      setTotalMessagesReached({});
       setIsConnected(false);
       setCurrentUserId(undefined);
       setChatStatus(status);
+      _resetDialogsAndMessagesProgress();
     }
 
     return disconnected;
@@ -88,11 +86,15 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
   const terminate = (status: ChatStatus = ChatStatus.DISCONNECTED): void => {
     ConnectyCube.chat.terminate();
+    setChatStatus(status);
+    _resetDialogsAndMessagesProgress();
+    _markMessagesAsLostInStore();
+  };
+
+  const _resetDialogsAndMessagesProgress = () => {
     activatedDialogsRef.current = {};
     setTotalDialogReached(false);
     setTotalMessagesReached({});
-    setChatStatus(status);
-    _markMessagesAsLostInStore();
   };
 
   const _establishConnection = async (online: boolean) => {
@@ -660,7 +662,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const _processDisconnect = () => {
     if (chatStatusRef.current !== ChatStatus.CONNECTING) {
       setChatStatus(ChatStatus.DISCONNECTED);
-      setActivatedDialogs({});
+      _resetDialogsAndMessagesProgress();
     }
 
     _markMessagesAsLostInStore();
