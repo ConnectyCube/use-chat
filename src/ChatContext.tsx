@@ -1,10 +1,9 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { ChatContextType, ChatProviderType, ChatStatus, DialogEventSignal, MessageStatus } from "./types";
-import { Chat, ChatEvent, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
-
-import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
+import ConnectyCube from "connectycube";
+import { Chat, ChatEvent, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
 import { formatDistanceToNow } from "date-fns";
+import { ChatContextType, ChatProviderType, ChatStatus, DialogEventSignal, MessageStatus } from "./types";
 import { useBlockList, useNetworkStatus, useUsers } from "./hooks";
 import { getDialogTimestamp, parseDate } from "./helpers";
 
