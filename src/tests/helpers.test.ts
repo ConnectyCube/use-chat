@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
-import { parseDate, getLastActivityText } from "../helpers";
+import { parseDate, getLastActivityText, getDialogTimestamp } from "../helpers";
 import { describe } from "node:test";
+import { LastMessageMessageStatus } from "connectycube/types";
 
 describe("parseDate", () => {
   test("parseDate: parses timestamp to milliseconds", () => {
@@ -38,7 +39,48 @@ describe("getLastActivityText", () => {
     const expectedDate = `${yesterday.getUTCDate()}/${(yesterday.getMonth() + 1)
       .toString()
       .padStart(2, "0")}/${yesterday.getFullYear()}`;
-
     expect(getLastActivityText(86400)).toBe(`Last seen ${expectedDate}`);
+  });
+});
+
+describe("getDialogTimestamp", () => {
+  const mockDialog = {
+    _id: "some-id",
+    name: "some name",
+    description: null,
+    xmpp_room_jid: null,
+    type: 3,
+    photo: null,
+    user_id: 1234567,
+    admins_ids: [1234567],
+    occupants_ids: [1234567, 1234568],
+    created_at: "2025-01-04T17:46:00.000Z",
+    updated_at: "2025-01-04T17:46:04.000Z",
+    last_message: "Hey All",
+    last_message_date_sent: 1736012764,
+    last_message_id: "last-message-id",
+    last_message_user_id: 1234567,
+    last_message_status: LastMessageMessageStatus.SENT,
+    unread_messages_count: 0,
+  };
+
+  test("getDialogTimestamp: returns timestamp from [dialog.last_message_date_sent] if valid", () => {
+    const dialog = { ...mockDialog };
+    expect(getDialogTimestamp(dialog)).toBe(1736012764000);
+  });
+
+  test("getDialogTimestamp: returns timestamp from [dialog.updated_at] if [dialog.last_message_date_sent] is invalid", () => {
+    const dialog = { ...mockDialog, last_message_date_sent: undefined };
+    expect(getDialogTimestamp(dialog)).toBe(new Date(mockDialog.updated_at).getTime());
+  });
+
+  test("getDialogTimestamp: returns timestamp from [dialog.created_at] if [dialog.last_message_date_sent] and [dialog.updated_at] are invalid", () => {
+    const dialog = { ...mockDialog, last_message_date_sent: undefined, updated_at: "invalid" };
+    expect(getDialogTimestamp(dialog)).toBe(new Date(mockDialog.created_at).getTime());
+  });
+
+  test("getDialogTimestamp: returns 0 if all date fields are invalid", () => {
+    const dialog = { ...mockDialog, last_message_date_sent: undefined, created_at: "invalid", updated_at: "invalid" };
+    expect(getDialogTimestamp(dialog)).toBe(0);
   });
 });

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.26.0
+
+### Features
+
+- Added the `terminate` method to stop the chat connection, with the ability to reconnect
+- Added the `getNextDialogs` method to fetch the next batch of dialogs
+- Implemented the `totalDialogReached` (`boolean`) state to indicate whether all dialogs have been fetched
+- Implemented the `totalMessagesReached` (`{ [dialogId: string]: boolean }`) state to indicate whether all messages for a dialog have been fetched
+
+### Updated
+
+- Uses `connectycube@4.6.0`
+
+### Misc
+
+- The _"SASLError: not-authorized"_ error tries to disconnect or terminate the chat connection
+
 ## 0.25.0
 
 ### Updated
