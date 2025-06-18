@@ -52,7 +52,7 @@ export interface ChatContextType extends BlockListHook, UsersHookExports, Networ
   processOnMessageSent: (fn: Chat.OnMessageSentListener | null) => void;
 }
 
-export enum GroupChatEventType {
+export enum DialogEventSignal {
   ADDED_TO_DIALOG = "dialog/ADDED_TO_DIALOG",
   REMOVED_FROM_DIALOG = "dialog/REMOVED_FROM_DIALOG",
   ADD_PARTICIPANTS = "dialog/ADD_PARTICIPANTS",
