@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.26.1
+
+### Bug fixes
+
+- The `totalMessagesReached` state defines is determined correctly
+
 ## 0.26.0
 
 ### Updated
