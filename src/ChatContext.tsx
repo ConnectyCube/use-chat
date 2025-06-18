@@ -180,7 +180,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     try {
       const { items: fetchedMessages, skip, limit } = await ConnectyCube.chat.message.list(params);
       const existedMessages = messagesRef.current[dialogId] ?? [];
-      const reached = skip + limit >= fetchedMessages.length + existedMessages.length;
+      const reached = skip + limit > fetchedMessages.length + existedMessages.length;
 
       setTotalMessagesReached((prevState) => ({ ...prevState, [dialogId]: reached }));
 
