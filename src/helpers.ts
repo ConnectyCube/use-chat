@@ -1,4 +1,4 @@
-import { DateOrTimestamp } from "connectycube/types";
+import { DateOrTimestamp, Dialogs } from "connectycube/types";
 
 export const parseDate = (date: DateOrTimestamp): number | undefined => {
   let result: number | undefined;
@@ -37,3 +37,6 @@ export const getLastActivityText = (seconds: number): string => {
 
   return status;
 };
+
+export const getDialogTimestamp = (dialog: Dialogs.Dialog) =>
+  parseDate(dialog.last_message_date_sent) || parseDate(dialog.updated_at) || parseDate(dialog.created_at) || 0;

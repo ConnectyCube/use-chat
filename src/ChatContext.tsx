@@ -1,12 +1,11 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
-import { ChatContextType, ChatProviderType, ChatStatus, GroupChatEventType, MessageStatus } from "./types";
-import { Chat, ChatEvent, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
-
-import ConnectyCube from "connectycube";
 import useStateRef from "react-usestateref";
+import ConnectyCube from "connectycube";
+import { Chat, ChatEvent, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
 import { formatDistanceToNow } from "date-fns";
+import { ChatContextType, ChatProviderType, ChatStatus, DialogEventSignal, MessageStatus } from "./types";
 import { useBlockList, useNetworkStatus, useUsers } from "./hooks";
-import { parseDate } from "./helpers";
+import { getDialogTimestamp, parseDate } from "./helpers";
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 ChatContext.displayName = "ChatContext";
@@ -25,28 +24,30 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   // state
   const [isConnected, setIsConnected] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<ChatContextType["unreadMessagesCount"]>({ total: 0 });
-  const [messages, setMessages] = useState<{ [dialogId: string]: Messages.Message[] }>({});
   const [typingStatus, setTypingStatus] = useState<{ [dialogId: string]: number[] }>({});
-  const [activatedDialogs, setActivatedDialogs] = useState<{ [dialogId: string]: boolean }>({});
+  const [totalMessagesReached, setTotalMessagesReached] = useState<{ [dialogId: string]: boolean }>({});
+  const [totalDialogReached, setTotalDialogReached] = useState<boolean>(false);
+  // state refs
+  const [messages, setMessages, messagesRef] = useStateRef<{ [dialogId: string]: Messages.Message[] }>({});
+  const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
+  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
+  const [selectedDialog, setSelectedDialog, selectedDialogRef] = useStateRef<Dialogs.Dialog | undefined>();
+  const [chatStatus, setChatStatus, chatStatusRef] = useStateRef(ChatStatus.DISCONNECTED);
   // refs
   const typingTimers = useRef<{ [dialogId: string]: { [userId: number | string]: NodeJS.Timeout } }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
   const onSignalRef = useRef<Chat.OnMessageSystemListener | null>(null);
   const onMessageSentRef = useRef<Chat.OnMessageSentListener | null>(null);
   const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
+  const activatedDialogsRef = useRef<{ [dialogId: string]: boolean }>({});
   const privateDialogsIdsRef = useRef<{ [userId: number | string]: string }>({});
-  // state refs
-  const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
-  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
-  const [selectedDialog, setSelectedDialog, selectedDialogRef] = useStateRef<Dialogs.Dialog | undefined>();
-  const [chatStatus, setChatStatus, chatStatusRef] = useStateRef(ChatStatus.DISCONNECTED);
   // internal hooks
   const chatBlockList = useBlockList(isConnected);
   const chatUsers = useUsers(currentUserId);
   const { isOnline } = useNetworkStatus();
   const { _retrieveAndStoreUsers } = chatUsers;
 
-  const connect = async (credentials: Chat.ConnectionParams) => {
+  const connect = async (credentials: Chat.ConnectionParams): Promise<boolean> => {
     setChatStatus(ChatStatus.CONNECTING);
 
     try {
@@ -57,19 +58,42 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         setIsConnected(_isConnected);
         setCurrentUserId(credentials.userId);
       }
+
+      return _isConnected;
     } catch (error) {
       setChatStatus(ChatStatus.DISCONNECTED);
       console.error(`Failed to connect due to ${error}`);
+
+      return false;
     }
   };
 
-  const disconnect = async () => {
+  const disconnect = async (status: ChatStatus = ChatStatus.DISCONNECTED): Promise<boolean> => {
+    let disconnected = false;
+
     if (ConnectyCube.chat.isConnected) {
-      await ConnectyCube.chat.disconnect();
+      disconnected = await ConnectyCube.chat.disconnect();
+
       setIsConnected(false);
       setCurrentUserId(undefined);
-      setChatStatus(ChatStatus.DISCONNECTED);
+      setChatStatus(status);
+      _resetDialogsAndMessagesProgress();
     }
+
+    return disconnected;
+  };
+
+  const terminate = (status: ChatStatus = ChatStatus.DISCONNECTED): void => {
+    ConnectyCube.chat.terminate();
+    setChatStatus(status);
+    _resetDialogsAndMessagesProgress();
+    _markMessagesAsLostInStore();
+  };
+
+  const _resetDialogsAndMessagesProgress = () => {
+    activatedDialogsRef.current = {};
+    setTotalDialogReached(false);
+    setTotalMessagesReached({});
   };
 
   const _establishConnection = async (online: boolean) => {
@@ -81,25 +105,21 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       try {
         await ConnectyCube.chat.pingWithTimeout(1000);
       } catch (error) {
-        await ConnectyCube.chat.stop();
-        _processDisconnect();
+        terminate();
       }
     }
   };
 
   const createChat = async (userId: number, extensions?: { [key: string]: any }): Promise<Dialogs.Dialog> => {
-    const params = {
-      type: DialogType.PRIVATE,
-      occupants_ids: [userId],
-      extensions,
-    };
+    const params = { type: DialogType.PRIVATE, occupants_ids: [userId], extensions };
     const dialog = await ConnectyCube.chat.dialog.create(params);
 
     setDialogs((prevDialogs) => [dialog, ...prevDialogs.filter((d) => d._id !== dialog._id)]);
+    setTotalMessagesReached((prevState) => ({ ...prevState, [dialog._id]: true }));
 
     privateDialogsIdsRef.current[userId] = dialog._id;
 
-    _notifyUsers(GroupChatEventType.NEW_DIALOG, dialog._id, userId);
+    _notifyUsers(DialogEventSignal.NEW_DIALOG, dialog._id, userId);
     _retrieveAndStoreUsers([userId, currentUserId as number]);
 
     return dialog;
@@ -111,20 +131,14 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     photo?: string,
     extensions?: { [key: string]: any },
   ): Promise<Dialogs.Dialog> => {
-    const params = {
-      type: DialogType.GROUP,
-      name,
-      photo,
-      occupants_ids: usersIds,
-      extensions,
-    };
-
+    const params = { name, photo, type: DialogType.GROUP, occupants_ids: usersIds, extensions };
     const dialog = await ConnectyCube.chat.dialog.create(params);
 
     setDialogs((prevDialogs) => [dialog, ...prevDialogs.filter((d) => d._id !== dialog._id)]);
+    setTotalMessagesReached((prevState) => ({ ...prevState, [dialog._id]: true }));
 
     usersIds.forEach((userId) => {
-      _notifyUsers(GroupChatEventType.NEW_DIALOG, dialog._id, userId);
+      _notifyUsers(DialogEventSignal.NEW_DIALOG, dialog._id, userId);
     });
     _retrieveAndStoreUsers([...usersIds, currentUserId as number]);
 
@@ -132,32 +146,29 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const getDialogs = async (filters?: Dialogs.ListParams): Promise<Dialogs.Dialog[]> => {
-    // fetch chats
-    const { items: fetchedDialogs } = await ConnectyCube.chat.dialog.list(filters);
+    const params = { sort_desc: "date_sent", limit: 100, skip: 0, ...filters };
+    const { items: fetchedDialogs, skip, limit, total_entries } = await ConnectyCube.chat.dialog.list(params);
+    const reached = skip + limit >= total_entries;
 
-    // store dialogs
+    setTotalDialogReached(reached);
     setDialogs((prevDialogs) => {
       const allDialogs = [...prevDialogs, ...fetchedDialogs];
-
-      // Create a map keyed by dialog._id to eliminate duplicates
-      const uniqueDialogsMap = new Map<string, Dialogs.Dialog>();
-      allDialogs.forEach((dialog) => uniqueDialogsMap.set(dialog._id, dialog));
-
-      // Convert the map values to an array and sort by the most recent message date
-      const sortedDialogs = Array.from(uniqueDialogsMap.values()).sort((a, b) => {
-        const dateA = parseDate(a.last_message_date_sent) || parseDate(a.created_at) || 0;
-        const dateB = parseDate(b.last_message_date_sent) || parseDate(b.created_at) || 0;
-        return dateB - dateA; // Sort in descending order (most recent first)
-      });
-
-      return sortedDialogs;
+      const uniqueDialogs = Array.from(new Map(allDialogs.map((d) => [d._id, d])).values());
+      return uniqueDialogs.sort((a, b) => getDialogTimestamp(b) - getDialogTimestamp(a));
     });
 
-    // store users
-    const usersIds = Array.from(new Set(fetchedDialogs.flatMap((dialog) => dialog.occupants_ids)));
-    _retrieveAndStoreUsers(usersIds);
+    const usersIds = fetchedDialogs.flatMap((dialog) => dialog.occupants_ids);
+    const uniqueUsersIds = Array.from(new Set(usersIds));
+
+    _retrieveAndStoreUsers(uniqueUsersIds);
 
     return fetchedDialogs;
+  };
+
+  const getNextDialogs = async (): Promise<Dialogs.Dialog[]> => {
+    const skip = dialogsRef.current.length;
+
+    return getDialogs({ skip });
   };
 
   const _listMessagesByDialogId = async (
@@ -167,9 +178,13 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     const params = { chat_dialog_id: dialogId, sort_desc: "date_sent", limit: 100, skip: 0, ...listParams };
 
     try {
-      const result = await ConnectyCube.chat.message.list(params);
-      // store messages
-      const retrievedMessages = result.items
+      const { items: fetchedMessages, skip, limit } = await ConnectyCube.chat.message.list(params);
+      const existedMessages = messagesRef.current[dialogId] ?? [];
+      const reached = skip + limit >= fetchedMessages.length + existedMessages.length;
+
+      setTotalMessagesReached((prevState) => ({ ...prevState, [dialogId]: reached }));
+
+      return fetchedMessages
         .sort((a: Messages.Message, b: Messages.Message) => {
           return a._id.toString().localeCompare(b._id.toString()); // revers sort
         })
@@ -180,11 +195,9 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           }));
           return { ...msg, attachments, status: msg.read ? MessageStatus.READ : MessageStatus.SENT };
         });
-      return retrievedMessages;
     } catch (error: any) {
       if (error.code === 404) {
-        // dialog not found
-        return [];
+        return []; // dialog not found
       }
       throw error;
     }
@@ -203,12 +216,8 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const getNextMessages = async (dialogId: string): Promise<Messages.Message[]> => {
-    const dialogMessages = messages[dialogId] ?? [];
+    const dialogMessages = messagesRef.current[dialogId] ?? [];
     const skip = dialogMessages.length;
-
-    if (skip < 100) {
-      return [];
-    }
 
     try {
       const retrievedMessages = await _listMessagesByDialogId(dialogId, { skip });
@@ -224,14 +233,13 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
   const selectDialog = async (dialog?: Dialogs.Dialog): Promise<void> => {
     setSelectedDialog(dialog);
-    if (!dialog) {
-      return;
-    }
+
+    if (!dialog) return;
 
     // retrieve messages if chat is not activated yet
-    if (!activatedDialogs[dialog._id]) {
+    if (!activatedDialogsRef.current[dialog._id]) {
       await getMessages(dialog._id);
-      setActivatedDialogs({ ...activatedDialogs, [dialog._id]: true });
+      activatedDialogsRef.current[dialog._id] = true;
     }
 
     if (dialog.unread_messages_count > 0) {
@@ -241,6 +249,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
   const getDialogOpponentId = (dialog?: Dialogs.Dialog): number | undefined => {
     dialog ??= selectedDialog;
+
     if (!dialog) {
       throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
     }
@@ -248,11 +257,12 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     if (dialog.type !== DialogType.PRIVATE) {
       return undefined;
     }
-    const opponentId = dialog.occupants_ids.filter((oId) => {
-      return oId !== currentUserId;
-    })[0];
 
-    privateDialogsIdsRef.current[opponentId] = dialog._id;
+    const opponentId = dialog.occupants_ids.find((oid) => oid !== currentUserId);
+
+    if (opponentId) {
+      privateDialogsIdsRef.current[opponentId] = dialog._id;
+    }
 
     return opponentId;
   };
@@ -271,11 +281,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const markDialogAsRead = async (dialog: Dialogs.Dialog): Promise<void> => {
-    // mark all messages as read
-    const params = {
-      read: 1,
-      chat_dialog_id: dialog._id,
-    };
+    const params = { read: 1, chat_dialog_id: dialog._id };
     await ConnectyCube.chat.message.update("", params);
 
     setDialogs((prevDialogs) =>
@@ -288,25 +294,23 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       throw new Error("No dialog selected");
     }
 
-    // add users to group chat
     const dialogId = selectedDialog._id;
     const toUpdateParams = { push_all: { occupants_ids: usersIds } };
+
     await ConnectyCube.chat.dialog.update(dialogId, toUpdateParams);
 
-    // notify existing participants with system message
     selectedDialog.occupants_ids
       .filter((userId) => userId !== currentUserId)
       .forEach((userId) => {
-        _notifyUsers(GroupChatEventType.ADD_PARTICIPANTS, dialogId, userId, {
+        _notifyUsers(DialogEventSignal.ADD_PARTICIPANTS, dialogId, userId, {
           addedParticipantsIds: usersIds.join(),
         });
       });
 
     usersIds.forEach((userId) => {
-      _notifyUsers(GroupChatEventType.ADDED_TO_DIALOG, dialogId, userId);
+      _notifyUsers(DialogEventSignal.ADDED_TO_DIALOG, dialogId, userId);
     });
 
-    // update store
     _retrieveAndStoreUsers(usersIds);
 
     const updatedDialog = {
@@ -323,14 +327,13 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       throw new Error("No dialog selected");
     }
 
-    // remove users from group chat
     const dialogId = selectedDialog._id;
     const toUpdateParams = { pull_all: { occupants_ids: usersIds } };
+
     await ConnectyCube.chat.dialog.update(dialogId, toUpdateParams);
 
-    // notify users that they are removed from the dialog
     usersIds.forEach((userId) => {
-      _notifyUsers(GroupChatEventType.REMOVED_FROM_DIALOG, dialogId, userId);
+      _notifyUsers(DialogEventSignal.REMOVED_FROM_DIALOG, dialogId, userId);
     });
 
     selectedDialog.occupants_ids
@@ -338,12 +341,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         return !usersIds.includes(userId) && userId !== currentUserId;
       })
       .forEach((userId) => {
-        _notifyUsers(GroupChatEventType.REMOVE_PARTICIPANTS, dialogId, userId, {
+        _notifyUsers(DialogEventSignal.REMOVE_PARTICIPANTS, dialogId, userId, {
           removedParticipantsIds: usersIds.join(),
         });
       });
 
-    // update store
     const updatedDialog = {
       ...selectedDialog,
       occupants_ids: selectedDialog.occupants_ids.filter((userId) => !usersIds.includes(userId)),
@@ -360,11 +362,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
     await ConnectyCube.chat.dialog.delete(selectedDialog._id);
 
-    // notify participants with system message
     selectedDialog.occupants_ids
       .filter((userId) => userId !== currentUserId)
       .forEach((userId) => {
-        _notifyUsers(GroupChatEventType.REMOVED_FROM_DIALOG, selectedDialog._id, userId);
+        _notifyUsers(DialogEventSignal.REMOVED_FROM_DIALOG, selectedDialog._id, userId);
       });
 
     setDialogs(dialogs.filter((dialog) => dialog._id !== selectedDialog._id));
@@ -373,6 +374,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
   const sendMessage = (body: string, dialog?: Dialogs.Dialog) => {
     dialog ??= selectedDialog;
+
     if (!dialog) {
       throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
     }
@@ -380,12 +382,12 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     const opponentId = getDialogOpponentId(dialog);
     const messageId = _sendMessage(body, null, dialog, opponentId);
 
-    // add message to store
     _addMessageToStore(messageId, body, dialog._id, currentUserId as number, opponentId);
   };
 
   const sendMessageWithAttachment = async (files: File[], dialog?: Dialogs.Dialog): Promise<void> => {
     dialog ??= selectedDialog;
+
     if (!dialog) {
       throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
     }
@@ -393,37 +395,26 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     const opponentId = getDialogOpponentId(dialog);
     const tempId = Date.now() + "";
     const attachments = files.map((file, index) => ({
-      uid: `local-${tempId}-${index}`, // just for temporary
+      uid: `local-${tempId}-${index}`, // temporary uid
       type: file.type,
       url: URL.createObjectURL(file),
     }));
 
-    // add message to store
     _addMessageToStore(tempId, "Attachment", dialog._id, currentUserId as number, opponentId, attachments, true);
 
-    // upload files to cloud
     const uploadFilesPromises = files.map((file) => {
-      const fileParams = {
-        file: file,
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        public: false,
-      };
+      const { name, type, size } = file;
+      const fileParams = { file, name, type, size, public: false };
       return ConnectyCube.storage.createAndUpload(fileParams);
     });
-
     const uploadedFilesResults = await Promise.all(uploadFilesPromises);
-    const uploadedAttachments = uploadedFilesResults.map(({ uid, content_type }) => ({
+    const uploadedAttachments = uploadedFilesResults.map(({ uid, content_type = "" }) => ({
       uid,
-      type: content_type ?? "",
+      type: content_type,
       url: ConnectyCube.storage.privateUrl(uid),
     }));
-
-    // send
     const messageId = _sendMessage("Attachment", uploadedAttachments, dialog, opponentId);
 
-    // update message in store
     setMessages((prevMessages) => ({
       ...prevMessages,
       [dialog._id]: prevMessages[dialog._id].map((msg) =>
@@ -446,7 +437,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     dialog: Dialogs.Dialog,
     opponentId?: number,
   ): string => {
-    // send message
     const messageParams: Chat.MessageParams = {
       type: dialog.type === DialogType.PRIVATE ? ChatType.CHAT : ChatType.GROUPCHAT,
       body,
@@ -455,9 +445,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         dialog_id: dialog._id,
       },
     };
+
     if (attachments) {
       messageParams.extension.attachments = attachments;
     }
+
     const messageId = ConnectyCube.chat.send(
       dialog.type === DialogType.PRIVATE ? (opponentId as number) : dialog._id,
       messageParams,
@@ -558,11 +550,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const readMessage = (messageId: string, userId: number, dialogId: string) => {
-    ConnectyCube.chat.sendReadStatus({
-      messageId,
-      userId,
-      dialogId,
-    });
+    ConnectyCube.chat.sendReadStatus({ messageId, userId, dialogId });
 
     _updateMessageStatusInStore(MessageStatus.READ, messageId, dialogId, userId);
 
@@ -579,23 +567,14 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const _notifyUsers = (command: string, dialogId: string, userId: number, params: any = {}) => {
-    const msg = {
-      body: command,
-      extension: {
-        dialogId,
-        ...params,
-      },
-    };
+    const msg = { body: command, extension: { dialogId, ...params } };
 
     ConnectyCube.chat.sendSystemMessage(userId, msg);
   };
 
   const sendSignal = (userIdOrIds: number | number[], signal: string, params: any = {}) => {
     const receivers = Array.isArray(userIdOrIds) ? userIdOrIds : [userIdOrIds];
-    const msg = {
-      body: signal,
-      extension: params,
-    };
+    const msg = { body: signal, extension: params };
 
     receivers.forEach((userId) => {
       ConnectyCube.chat.sendSystemMessage(userId, msg);
@@ -604,9 +583,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
   const sendTypingStatus = (dialog?: Dialogs.Dialog) => {
     dialog ??= selectedDialog;
+
     if (!dialog) {
       throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
     }
+
     ConnectyCube.chat.sendIsTypingStatus(
       dialog.type === DialogType.PRIVATE ? (getDialogOpponentId(dialog) as number) : dialog._id,
     );
@@ -617,11 +598,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       const prevUsersIds = prevTypingStatus[dialogId];
       const nextUsersIds = prevUsersIds ? new Set<number>(prevUsersIds) : new Set<number>();
 
-      if (isTyping) {
-        nextUsersIds.add(userId);
-      } else {
-        nextUsersIds.delete(userId);
-      }
+      isTyping ? nextUsersIds.add(userId) : nextUsersIds.delete(userId);
 
       return { ...prevTypingStatus, [dialogId]: [...nextUsersIds] };
     });
@@ -684,8 +661,9 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const _processDisconnect = () => {
     if (chatStatusRef.current !== ChatStatus.CONNECTING) {
       setChatStatus(ChatStatus.DISCONNECTED);
-      setActivatedDialogs({});
+      _resetDialogsAndMessagesProgress();
     }
+
     _markMessagesAsLostInStore();
   };
 
@@ -706,8 +684,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       error?.text === "Password not verified" ||
       error?.name === "SASLError"
     ) {
-      await ConnectyCube.chat.stop();
-      setChatStatus(ChatStatus.NOT_AUTHORIZED);
+      const isDisconnected = await disconnect(ChatStatus.NOT_AUTHORIZED);
+
+      if (!isDisconnected) {
+        terminate(ChatStatus.NOT_AUTHORIZED);
+      }
     } else {
       setChatStatus(ChatStatus.ERROR);
     }
@@ -737,12 +718,9 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           }))
         : undefined;
 
-    // add message to store
     _addMessageToStore(messageId, body, dialogId, userId, opponentId, attachments);
-    // clear typing status
     _clearTypingStatus(dialogId, userId);
 
-    // updates chats store
     setDialogs((prevDialogs) =>
       prevDialogs.map((dialog) =>
         dialog._id === dialogId
@@ -788,30 +766,24 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
 
     // TODO: handle multi-device
-    if (senderId === currentUserIdRef.current) {
-      return;
-    }
+    if (senderId === currentUserIdRef.current) return;
 
     switch (message.body) {
-      // when someone created a new chat with you or added to chat
-      case GroupChatEventType.NEW_DIALOG:
-      case GroupChatEventType.ADDED_TO_DIALOG: {
-        const result = await ConnectyCube.chat.dialog.list({
-          _id: dialogId,
-        });
+      case DialogEventSignal.NEW_DIALOG:
+      case DialogEventSignal.ADDED_TO_DIALOG: {
+        const result = await ConnectyCube.chat.dialog.list({ _id: dialogId });
         const dialog = result.items[0];
 
         _retrieveAndStoreUsers(dialog.occupants_ids);
-
         setDialogs((prevDialogs) => [dialog, ...prevDialogs.filter((d) => d._id !== dialog._id)]);
 
         break;
       }
-      // when someone added new participants to the chat
-      case GroupChatEventType.ADD_PARTICIPANTS: {
-        const usersIds = message.extension.addedParticipantsIds.split(",").map(Number) as number[];
-        _retrieveAndStoreUsers(usersIds);
 
+      case DialogEventSignal.ADD_PARTICIPANTS: {
+        const usersIds = message.extension.addedParticipantsIds.split(",").map(Number) as number[];
+
+        _retrieveAndStoreUsers(usersIds);
         setDialogs((prevDialogs) =>
           prevDialogs.map((d) => {
             if (d._id === dialogId) {
@@ -820,10 +792,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
             return d;
           }),
         );
+
         break;
       }
-      // when someone removed participants from chat
-      case GroupChatEventType.REMOVE_PARTICIPANTS: {
+
+      case DialogEventSignal.REMOVE_PARTICIPANTS: {
         const usersIds = message.extension.removedParticipantsIds.split(",").map(Number);
 
         setDialogs((prevDialogs) =>
@@ -834,10 +807,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
             return d;
           }),
         );
+
         break;
       }
-      // when other user left the chat
-      case GroupChatEventType.REMOVED_FROM_DIALOG: {
+
+      case DialogEventSignal.REMOVED_FROM_DIALOG: {
         setDialogs((prevDialogs) =>
           prevDialogs.map((d) => {
             if (d._id === dialogId && d.type !== DialogType.PRIVATE) {
@@ -846,6 +820,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
             return d;
           }),
         );
+
         break;
       }
     }
@@ -853,9 +828,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
 
   const _processReadMessageStatus = (messageId: string, dialogId: string, userId: number) => {
     // TODO: handle multi-device
-    if (userId === currentUserIdRef.current) {
-      return;
-    }
+    if (userId === currentUserIdRef.current) return;
 
     _updateMessageStatusInStore(MessageStatus.READ, messageId, dialogId, userId);
   };
@@ -864,9 +837,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     const _dialogId = dialogId || _getPrivateDialogIdByUserId(userId);
 
     // TODO: handle multi-device
-    if (!_dialogId || !userId || userId === currentUserIdRef.current) {
-      return;
-    }
+    if (!_dialogId || !userId || userId === currentUserIdRef.current) return;
 
     _updateTypingStatus(_dialogId, userId, isTyping);
 
@@ -875,11 +846,11 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
 
     if (isTyping) {
-      // clear previous and run new timer
       if (typingTimers.current[_dialogId][userId]) {
         clearTimeout(typingTimers.current[_dialogId][userId]);
         delete typingTimers.current[_dialogId][userId];
       }
+
       typingTimers.current[_dialogId][userId] = setTimeout(() => {
         _clearTypingStatus(_dialogId, userId);
       }, 6000);
@@ -888,7 +859,6 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
   };
 
-  // Chat callbacks
   useEffect(() => {
     ConnectyCube.chat.addListener(ChatEvent.DISCONNECTED, _processDisconnect);
     ConnectyCube.chat.addListener(ChatEvent.RECONNECTED, _processReconnect);
@@ -921,6 +891,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         chatStatus,
         connect,
         disconnect,
+        terminate,
         currentUserId,
         selectDialog,
         selectedDialog,
@@ -928,11 +899,14 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         unreadMessagesCount,
         getMessages,
         getNextMessages,
+        totalMessagesReached,
         messages,
         sendSignal,
         sendMessage,
         dialogs,
         getDialogs,
+        getNextDialogs,
+        totalDialogReached,
         createChat,
         createGroupChat,
         sendTypingStatus,
