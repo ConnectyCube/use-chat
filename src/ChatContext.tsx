@@ -4,7 +4,7 @@ import ConnectyCube from "connectycube";
 import { Chat, ChatEvent, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
 import { formatDistanceToNow } from "date-fns";
 import { ChatContextType, ChatProviderType, ChatStatus, DialogEventSignal, MessageStatus } from "./types";
-import { useBlockList, useNetworkStatus, useUsers } from "./hooks";
+import { useBlockList, useChatStore, useNetworkStatus, useUsers } from "./hooks";
 import { getDialogTimestamp, parseDate } from "./helpers";
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -44,8 +44,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   // internal hooks
   const chatBlockList = useBlockList(isConnected);
   const chatUsers = useUsers(currentUserId);
-  const { isOnline } = useNetworkStatus();
+  useNetworkStatus();
   const { _retrieveAndStoreUsers } = chatUsers;
+  // global state
+  const isOnline = useChatStore((state) => state.isOnline);
 
   const connect = async (credentials: Chat.ConnectionParams): Promise<boolean> => {
     setChatStatus(ChatStatus.CONNECTING);

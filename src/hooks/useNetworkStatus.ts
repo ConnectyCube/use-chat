@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import useChatStore from "./useChatStore";
+import { useShallow } from "zustand/shallow";
 
-export type NetworkStatusHook = {
+export interface NetworkStatusHook {
   isOnline: boolean;
-};
+}
 
 function useNetworkStatus(): NetworkStatusHook {
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [isOnline, setIsOnline] = useChatStore(useShallow((state) => [state.isOnline, state.setIsOnline]));
 
   useEffect(() => {
     const abortController1 = new AbortController();

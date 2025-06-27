@@ -1,6 +1,8 @@
 import ConnectyCube from "connectycube";
 import { PrivacyListAction } from "connectycube/types";
 import { useEffect, useState, useRef } from "react";
+import useChatStore from "./useChatStore";
+import { useShallow } from "zustand/shallow";
 
 export const BLOCK_LIST_LOG_TAG = "[useChat][useBlockList]";
 export const BLOCK_LIST_NAME = "ConnectyCubeBlockList";
@@ -13,10 +15,11 @@ export type BlockListHook = {
 };
 
 function useBlockList(isConnected: boolean): BlockListHook {
+  const [blockedUsers] = useChatStore(useShallow((state) => [state.blockedUsers, state.setBlockedUsers]));
   const [state, setState] = useState<Set<number>>(new Set<number>());
   const isApplied = useRef<boolean>(false);
 
-  const isBlocked = (userId: number): boolean => state.has(userId);
+  const isBlocked = (userId: number): boolean => blockedUsers.has(userId);
 
   const fetch = async (): Promise<void> => {
     if (!isConnected) {
