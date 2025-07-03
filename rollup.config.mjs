@@ -10,12 +10,6 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const packageJson = require('./package.json');
 
-const globals = {
-  "connectycube": "ConnectyCube",
-  "react": "React",
-  "react-dom": "ReactDOM",
-};
-
 export default [
   {
     input: "src/index.ts",
@@ -38,6 +32,6 @@ export default [
       typescript({ tsconfig: "./tsconfig.json" }),
       terser(),
     ],
-    external: Object.keys(globals),
+    external: ["connectycube", "react", "react-dom"],
   },
 ];
