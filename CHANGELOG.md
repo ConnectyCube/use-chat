@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.26.2
+
+### Misc
+
+- Pings chat every 60 seconds for better connection management
+- Updated `processOnMessageSent` function to improve handling of lost messages
+
 ## 0.26.1
 
 ### Bug fixes
