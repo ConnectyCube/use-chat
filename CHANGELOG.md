@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.26.2
+
+### Misc
+
+- Pings chat every 40 seconds for better connection management with enabled VPN
+- Updated `processOnMessageSent` function to improve handling of lost messages
+
+### Updated
+
+- Uses `connectycube@4.7.1`
+
 ## 0.26.1
 
 ### Bug fixes

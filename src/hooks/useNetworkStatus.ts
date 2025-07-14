@@ -1,38 +1,59 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import ConnectyCube from "connectycube";
 
 export type NetworkStatusHook = {
   isOnline: boolean;
 };
 
-function useNetworkStatus(): NetworkStatusHook {
+function useNetworkStatus(isConnected: boolean): NetworkStatusHook {
+  const pingIntervalRef = useRef<NodeJS.Timeout>(undefined);
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
 
-  useEffect(() => {
-    const abortController1 = new AbortController();
-    const abortController2 = new AbortController();
+  const clearPingInterval = () => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = undefined;
+    }
+  };
 
-    window.addEventListener(
-      "online",
-      () => {
+  const setPingInterval = () => {
+    pingIntervalRef.current = setInterval(async () => {
+      try {
+        await ConnectyCube.chat.pingWithTimeout(1000);
         setIsOnline(true);
-      },
-      {
-        signal: abortController1.signal,
-      },
-    );
-    window.addEventListener(
-      "offline",
-      () => {
+      } catch (error) {
         setIsOnline(false);
-      },
-      {
-        signal: abortController2.signal,
-      },
-    );
+        setTimeout(async () => {
+          try {
+            await ConnectyCube.chat.pingWithTimeout(1000);
+            setIsOnline(true);
+          } catch (error) {
+            setIsOnline(false);
+          }
+        }, 5000);
+      }
+    }, 40000);
+  };
+
+  useEffect(() => {
+    if (isConnected) {
+      clearPingInterval();
+      setPingInterval();
+    } else {
+      clearPingInterval();
+    }
+  }, [isConnected]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     return () => {
-      abortController1.abort();
-      abortController2.abort();
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
 

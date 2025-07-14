@@ -44,7 +44,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   // internal hooks
   const chatBlockList = useBlockList(isConnected);
   const chatUsers = useUsers(currentUserId);
-  const { isOnline } = useNetworkStatus();
+  const { isOnline } = useNetworkStatus(isConnected);
   const { _retrieveAndStoreUsers } = chatUsers;
 
   const connect = async (credentials: Chat.ConnectionParams): Promise<boolean> => {
@@ -97,13 +97,14 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const _establishConnection = async (online: boolean) => {
-    if (online) {
-      if (chatStatusRef.current === ChatStatus.DISCONNECTED) {
+    if (online && chatStatusRef.current !== ChatStatus.ERROR) {
+      if (chatStatusRef.current === ChatStatus.DISCONNECTED || chatStatusRef.current === ChatStatus.NOT_AUTHORIZED) {
         setChatStatus(ChatStatus.CONNECTING);
       }
     } else {
       try {
         await ConnectyCube.chat.pingWithTimeout(1000);
+        setChatStatus(ChatStatus.CONNECTED);
       } catch (error) {
         terminate();
       }
@@ -749,11 +750,12 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       onMessageSentRef.current(lost, sent);
     }
 
-    const dialogId = sent?.extension.dialog_id;
-    const messageId = sent?.id;
+    const nextStatus = sent ? MessageStatus.SENT : lost ? MessageStatus.LOST : undefined;
+    const messageId = sent ? sent.id : lost ? lost.id : undefined;
+    const dialogId = sent ? sent.extension.dialog_id : lost ? lost.extension.dialog_id : undefined;
 
-    if (dialogId && messageId) {
-      _updateMessageStatusInStore(MessageStatus.SENT, messageId, dialogId);
+    if (nextStatus && messageId && dialogId) {
+      _updateMessageStatusInStore(nextStatus, messageId, dialogId);
     }
   };
 
