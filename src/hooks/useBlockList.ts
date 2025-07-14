@@ -15,7 +15,9 @@ export type BlockListHook = {
 };
 
 function useBlockList(isConnected: boolean): BlockListHook {
-  const [blockedUsers] = useChatStore(useShallow((state) => [state.blockedUsers, state.setBlockedUsers]));
+  const [blockedUsers, setBlockedUsers] = useChatStore(
+    useShallow((state) => [state.blockedUsers, state.setBlockedUsers]),
+  );
   const [state, setState] = useState<Set<number>>(new Set<number>());
   const isApplied = useRef<boolean>(false);
 
