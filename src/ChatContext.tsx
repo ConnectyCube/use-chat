@@ -97,17 +97,14 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const _establishConnection = async (online: boolean) => {
-    if (online) {
-      if (
-        chatStatusRef.current === ChatStatus.DISCONNECTED ||
-        chatStatusRef.current === ChatStatus.NOT_AUTHORIZED ||
-        chatStatusRef.current === ChatStatus.ERROR
-      ) {
+    if (online && chatStatusRef.current !== ChatStatus.ERROR) {
+      if (chatStatusRef.current === ChatStatus.DISCONNECTED || chatStatusRef.current === ChatStatus.NOT_AUTHORIZED) {
         setChatStatus(ChatStatus.CONNECTING);
       }
     } else {
       try {
         await ConnectyCube.chat.pingWithTimeout(1000);
+        setChatStatus(ChatStatus.CONNECTED);
       } catch (error) {
         terminate();
       }
