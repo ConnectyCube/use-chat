@@ -21,12 +21,20 @@ function useNetworkStatus(isConnected: boolean): NetworkStatusHook {
   const setPingInterval = () => {
     pingIntervalRef.current = setInterval(async () => {
       try {
-        await ConnectyCube.chat.pingWithTimeout(5000);
+        await ConnectyCube.chat.pingWithTimeout(1000);
         setIsOnline(true);
       } catch (error) {
         setIsOnline(false);
+        setTimeout(async () => {
+          try {
+            await ConnectyCube.chat.pingWithTimeout(1000);
+            setIsOnline(true);
+          } catch (error) {
+            setIsOnline(false);
+          }
+        }, 5000);
       }
-    }, 60000);
+    }, 40000);
   };
 
   useEffect(() => {
