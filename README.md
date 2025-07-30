@@ -76,21 +76,23 @@ For more complex example please check [React chat code sample](https://github.co
 
 ## API
 
-Check types for more API examples https://github.com/ConnectyCube/use-chat/blob/main/src/types/index.ts
+Check types for more API examples <https://github.com/ConnectyCube/use-chat/blob/main/src/types/index.ts>
 
-## Documentation 
+## Documentation
 
 [https://developers.connectycube.com/js/use-chat](https://developers.connectycube.com/js/use-chat)
 
 ## Have an issue?
 
-Join our [Discord](https://discord.com/invite/zqbBWNCCFJ) for quick answers to your questions
+Join our [Discord](https://discord.com/invite/zqbBWNCCFJ) community to get real-time help from our team
 
 ## Community
 
 - [Blog](https://connectycube.com/blog)
 - X (twitter)[@ConnectyCube](https://x.com/ConnectyCube)
 - [Facebook](https://www.facebook.com/ConnectyCube)
+- [Medium](https://medium.com/@connectycube)
+- [Youtube](https://www.youtube.com/@ConnectyCube)
 
 **Want to support our team**:<br>
 <a href="https://www.buymeacoffee.com/connectycube" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
