@@ -59,9 +59,7 @@ function useNetworkStatus(isConnected: boolean): NetworkStatusHook {
     };
   }, []);
 
-  return {
-    isOnline,
-  };
+  return { isOnline };
 }
 
 export default useNetworkStatus;

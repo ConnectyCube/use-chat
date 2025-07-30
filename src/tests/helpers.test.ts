@@ -1,6 +1,6 @@
+import { describe } from "node:test";
 import { expect, test } from "vitest";
 import { parseDate, getLastActivityText, getDialogTimestamp } from "../helpers";
-import { describe } from "node:test";
 import { LastMessageMessageStatus } from "connectycube/types";
 
 describe("parseDate", () => {

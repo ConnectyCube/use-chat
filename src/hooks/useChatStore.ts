@@ -19,9 +19,11 @@ export interface UsersStoreState {
   onlineUsersCount: number;
   lastActivity: UsersLastActivity;
 }
-export interface ChatStoreState extends NetworkStatusStoreState, BlockListStoreState, UsersStoreState {}
+export interface ChatStoreState extends BlockListStoreState, NetworkStatusStoreState, UsersStoreState {}
 
-export interface BlockListStoreActions {}
+export interface BlockListStoreActions {
+  setBlockedUsers: (blockedUsers: Set<number>) => void;
+}
 export interface NetworkStatusStoreActions {
   setIsOnline: (isOnline: boolean) => void;
 }
@@ -61,6 +63,11 @@ const initialState: ChatStoreState = {
 const useChatStore = create<ChatStore>()(
   subscribeWithSelector((set, get) => ({
     ...initialState,
+    // Block list
+    setBlockedUsers: (blockedUsers: Set<number>) => set({ blockedUsers }),
+    // Network
+    setIsOnline: (isOnline?: boolean) => set({ isOnline }),
+    // Users & online users
     upsertUser: (user: UserItem) => set({ users: { ...get().users, [user.id]: user } }),
     upsertUsers: (users: UsersArray) =>
       set({ users: users.reduce<UsersObject>((map, user) => ({ ...map, [user.id]: user }), { ...get().users }) }),
@@ -81,8 +88,7 @@ const useChatStore = create<ChatStore>()(
     setOnlineUsersCount: (onlineUsersCount: number) => set({ onlineUsersCount }),
     upsertLastActivity: (userId: number, status: string) =>
       set({ lastActivity: { ...get().lastActivity, [userId]: status } }),
-
-    setIsOnline: (isOnline?: boolean) => set({ isOnline }),
+    // Chat, Dialogs
     resetStore: () => set({ ...initialState }),
   })),
 );
