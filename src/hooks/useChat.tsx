@@ -1,12 +1,15 @@
-import { createContext, ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useStateRef from "react-usestateref";
 import ConnectyCube from "connectycube";
 import { Chat, ChatEvent, ChatType, Dialogs, DialogType, Messages } from "connectycube/types";
 import { formatDistanceToNow } from "date-fns";
-import { useBlockList, useChatStore, useNetworkStatus, useUsers } from "./hooks";
-import { getDialogTimestamp, parseDate } from "./helpers";
-import { BlockListHook } from "./hooks/useBlockList";
-import { UsersHookExports } from "./hooks/useUsers";
+import useChatStore from "./useChatStore";
+import useBlockList, { BlockListHook } from "./useBlockList";
+import useUsers, { UsersHookExports } from "./useUsers";
+import useNetworkStatus, { NetworkStatusHook } from "./useNetworkStatus";
+import { getDialogTimestamp, parseDate } from "../helpers";
+import { useShallow } from "zustand/shallow";
+import useChatStoreRef from "./useChatStoreRef";
 
 export enum DialogEventSignal {
   ADDED_TO_DIALOG = "dialog/ADDED_TO_DIALOG",
@@ -30,11 +33,8 @@ export enum ChatStatus {
   NOT_AUTHORIZED = "not-authorized",
   ERROR = "error",
 }
-export interface ChatProviderType {
-  children?: ReactNode;
-}
-export interface ChatContextType extends BlockListHook, UsersHookExports {
-  isOnline: boolean;
+
+export interface ChatHook extends BlockListHook, UsersHookExports, NetworkStatusHook {
   isConnected: boolean;
   chatStatus: ChatStatus;
   connect: (credentials: Chat.ConnectionParams) => Promise<boolean>;
@@ -78,33 +78,7 @@ export interface ChatContextType extends BlockListHook, UsersHookExports {
   processOnMessageSent: (fn: Chat.OnMessageSentListener | null) => void;
 }
 
-const ChatContext = createContext<ChatContextType | undefined>(undefined);
-
-ChatContext.displayName = "ChatContext";
-
-export const useChat = (): ChatContextType => {
-  const context = useContext(ChatContext);
-
-  if (!context) {
-    throw new Error("useChat must be within ChatProvider");
-  }
-
-  return context;
-};
-
-export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement => {
-  // state
-  const [isConnected, setIsConnected] = useState(false);
-  const [unreadMessagesCount, setUnreadMessagesCount] = useState<ChatContextType["unreadMessagesCount"]>({ total: 0 });
-  const [typingStatus, setTypingStatus] = useState<{ [dialogId: string]: number[] }>({});
-  const [totalMessagesReached, setTotalMessagesReached] = useState<{ [dialogId: string]: boolean }>({});
-  const [totalDialogReached, setTotalDialogReached] = useState<boolean>(false);
-  // state refs
-  const [messages, setMessages, messagesRef] = useStateRef<{ [dialogId: string]: Messages.Message[] }>({});
-  const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
-  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
-  const [selectedDialog, setSelectedDialog, selectedDialogRef] = useStateRef<Dialogs.Dialog | undefined>();
-  const [chatStatus, setChatStatus, chatStatusRef] = useStateRef(ChatStatus.DISCONNECTED);
+export const ChatProvider = (): ChatHook => {
   // refs
   const typingTimers = useRef<{ [dialogId: string]: { [userId: number | string]: NodeJS.Timeout } }>({});
   const onMessageRef = useRef<Chat.OnMessageListener | null>(null);
@@ -113,13 +87,56 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   const onMessageErrorRef = useRef<Chat.OnMessageErrorListener | null>(null);
   const activatedDialogsRef = useRef<{ [dialogId: string]: boolean }>({});
   const privateDialogsIdsRef = useRef<{ [userId: number | string]: string }>({});
+  // global state
+  const [
+    isOnline,
+    isConnected,
+    setIsConnected,
+    unreadMessagesCount,
+    setUnreadMessagesCount,
+    typingStatus,
+    setTypingStatus,
+    totalMessagesReached,
+    setTotalMessagesReached,
+    totalDialogReached,
+    setTotalDialogReached,
+  ] = useChatStore(
+    useShallow((state) => [
+      state.isOnline,
+      state.isConnected,
+      state.setIsConnected,
+      state.unreadMessagesCount,
+      state.setUnreadMessagesCount,
+      state.typingStatus,
+      state.setTypingStatus,
+      state.totalMessagesReached,
+      state.setTotalMessagesReached,
+      state.totalDialogReached,
+      state.setTotalDialogReached,
+    ]),
+  );
+  // state
+  const [isConnected, setIsConnected] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState<ChatHook["unreadMessagesCount"]>({ total: 0 });
+  const [typingStatus, setTypingStatus] = useState<{ [dialogId: string]: number[] }>({});
+  const [totalMessagesReached, setTotalMessagesReached] = useState<{ [dialogId: string]: boolean }>({});
+  const [totalDialogReached, setTotalDialogReached] = useState<boolean>(false);
+  // state refs
+  // const messagesRef = useChatStoreRef('messages');
+  // const dialogsRef = useChatStoreRef('dialogs');
+  // const currentUserIdRef = useChatStoreRef('currentUserId');
+  // const selectedDialogRef = useChatStoreRef('selectedDialog');
+  // const chatStatusRef = useChatStoreRef('chatStatus');
+  const [messages, setMessages, messagesRef] = useStateRef<{ [dialogId: string]: Messages.Message[] }>({});
+  const [dialogs, setDialogs, dialogsRef] = useStateRef<Dialogs.Dialog[]>([]);
+  const [currentUserId, setCurrentUserId, currentUserIdRef] = useStateRef<number | undefined>();
+  const [selectedDialog, setSelectedDialog, selectedDialogRef] = useStateRef<Dialogs.Dialog | undefined>();
+  const [chatStatus, setChatStatus, chatStatusRef] = useStateRef(ChatStatus.DISCONNECTED);
   // internal hooks
   const chatBlockList = useBlockList(isConnected);
   const chatUsers = useUsers(currentUserId);
-  const isOnline = useNetworkStatus(isConnected);
+  const networkStatus = useNetworkStatus(isConnected);
   const { _retrieveAndStoreUsers } = chatUsers;
-  // global state
-  // const isOnline = useChatStore((state) => state.isOnline);
 
   const connect = async (credentials: Chat.ConnectionParams): Promise<boolean> => {
     setChatStatus(ChatStatus.CONNECTING);
@@ -343,7 +360,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
   };
 
   const _updateUnreadMessagesCount = () => {
-    const count: ChatContextType["unreadMessagesCount"] = { total: 0 };
+    const count: ChatHook["unreadMessagesCount"] = { total: 0 };
 
     dialogs.forEach(({ _id, unread_messages_count = 0 }: Dialogs.Dialog) => {
       if (_id !== selectedDialog?._id) {
@@ -959,51 +976,46 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     _establishConnection(isOnline);
   }, [isOnline]);
 
-  return (
-    <ChatContext.Provider
-      value={{
-        isOnline,
-        isConnected,
-        chatStatus,
-        connect,
-        disconnect,
-        terminate,
-        currentUserId,
-        selectDialog,
-        selectedDialog,
-        getDialogOpponentId,
-        unreadMessagesCount,
-        getMessages,
-        getNextMessages,
-        totalMessagesReached,
-        messages,
-        sendSignal,
-        sendMessage,
-        dialogs,
-        getDialogs,
-        getNextDialogs,
-        totalDialogReached,
-        createChat,
-        createGroupChat,
-        sendTypingStatus,
-        typingStatus,
-        sendMessageWithAttachment,
-        markDialogAsRead,
-        removeUsersFromGroupChat,
-        addUsersToGroupChat,
-        leaveGroupChat,
-        readMessage,
-        lastMessageSentTimeString,
-        messageSentTimeString,
-        processOnSignal,
-        processOnMessage,
-        processOnMessageError,
-        processOnMessageSent,
-        ...chatBlockList,
-        ...chatUsers.exports,
-      }}
-    >
-      {children}
-    </ChatContext.Provider>
-  );
+  return {
+    isOnline,
+    isConnected,
+    chatStatus,
+    connect,
+    disconnect,
+    terminate,
+    currentUserId,
+    selectDialog,
+    selectedDialog,
+    getDialogOpponentId,
+    unreadMessagesCount,
+    getMessages,
+    getNextMessages,
+    totalMessagesReached,
+    messages,
+    sendSignal,
+    sendMessage,
+    dialogs,
+    getDialogs,
+    getNextDialogs,
+    totalDialogReached,
+    createChat,
+    createGroupChat,
+    sendTypingStatus,
+    typingStatus,
+    sendMessageWithAttachment,
+    markDialogAsRead,
+    removeUsersFromGroupChat,
+    addUsersToGroupChat,
+    leaveGroupChat,
+    readMessage,
+    lastMessageSentTimeString,
+    messageSentTimeString,
+    processOnSignal,
+    processOnMessage,
+    processOnMessageError,
+    processOnMessageSent,
+    ...chatBlockList,
+    ...chatUsers.exports,
+    ...networkStatus,
+  };
 };

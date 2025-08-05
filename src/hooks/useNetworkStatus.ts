@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import ConnectyCube from "connectycube";
+import { useShallow } from "zustand/shallow";
+import useChatStore from "./useChatStore";
 
-export type NetworkStatusHook = {
+export interface NetworkStatusHook {
   isOnline: boolean;
-};
+}
 
 function useNetworkStatus(isConnected: boolean): NetworkStatusHook {
   const pingIntervalRef = useRef<NodeJS.Timeout>(undefined);
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [isOnline, setIsOnline] = useChatStore(useShallow((state) => [state.isOnline, state.setIsOnline]));
 
   const clearPingInterval = () => {
     if (pingIntervalRef.current) {
@@ -57,9 +59,7 @@ function useNetworkStatus(isConnected: boolean): NetworkStatusHook {
     };
   }, []);
 
-  return {
-    isOnline,
-  };
+  return { isOnline };
 }
 
 export default useNetworkStatus;

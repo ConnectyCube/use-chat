@@ -1,6 +1,8 @@
 import ConnectyCube from "connectycube";
 import { PrivacyListAction } from "connectycube/types";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
+import useChatStore from "./useChatStore";
+import { useShallow } from "zustand/shallow";
 
 export const BLOCK_LIST_LOG_TAG = "[useChat][useBlockList]";
 export const BLOCK_LIST_NAME = "ConnectyCubeBlockList";
@@ -13,10 +15,12 @@ export type BlockListHook = {
 };
 
 function useBlockList(isConnected: boolean): BlockListHook {
-  const [state, setState] = useState<Set<number>>(new Set<number>());
   const isApplied = useRef<boolean>(false);
+  const [blockedUsers, setBlockedUsers] = useChatStore(
+    useShallow((state) => [state.blockedUsers, state.setBlockedUsers]),
+  );
 
-  const isBlocked = (userId: number): boolean => state.has(userId);
+  const isBlocked = (userId: number): boolean => blockedUsers.has(userId);
 
   const fetch = async (): Promise<void> => {
     if (!isConnected) {
@@ -37,7 +41,7 @@ function useBlockList(isConnected: boolean): BlockListHook {
 
       isApplied.current = true;
 
-      setState(newState);
+      setBlockedUsers(newState);
     }
   };
 
@@ -47,7 +51,7 @@ function useBlockList(isConnected: boolean): BlockListHook {
       return;
     }
 
-    const newState = new Set(state);
+    const newBlockedUsers = new Set(blockedUsers);
 
     const blockList = {
       name: BLOCK_LIST_NAME,
@@ -56,15 +60,15 @@ function useBlockList(isConnected: boolean): BlockListHook {
 
     try {
       if (action === PrivacyListAction.DENY) {
-        newState.add(user_id);
+        newBlockedUsers.add(user_id);
       } else if (action === PrivacyListAction.ALLOW) {
-        newState.delete(user_id);
+        newBlockedUsers.delete(user_id);
       }
 
       if (isApplied.current) {
         await ConnectyCube.chat.privacylist.setAsDefault(null);
         await ConnectyCube.chat.privacylist.update(blockList);
-        if (newState.size > 0) {
+        if (newBlockedUsers.size > 0) {
           await ConnectyCube.chat.privacylist.setAsDefault(BLOCK_LIST_NAME);
         }
       } else {
@@ -74,7 +78,7 @@ function useBlockList(isConnected: boolean): BlockListHook {
     } catch (error) {
       return;
     } finally {
-      setState(newState);
+      setBlockedUsers(blockedUsers);
     }
   };
 
@@ -103,7 +107,7 @@ function useBlockList(isConnected: boolean): BlockListHook {
   }, [isConnected]);
 
   return {
-    blockedUsers: Array.from(state),
+    blockedUsers: Array.from(blockedUsers),
     isBlockedUser: isBlocked,
     unblockUser: unblock,
     blockUser: block,
