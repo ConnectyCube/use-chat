@@ -42,6 +42,9 @@ export interface ChatContextType extends BlockListHook, UsersHookExports, Networ
   sendMessage: (body: string, dialog?: Dialogs.Dialog) => void;
   sendMessageWithAttachment: (files: File[], dialog?: Dialogs.Dialog) => Promise<void>;
   readMessage: (messageId: string, userId: number, dialogId: string) => void;
+  addTempMessage: (tempId?: string, dialog?: Dialogs.Dialog, props?: any) => string;
+  updateTempMessage: (tempId: string, dialog?: Dialogs.Dialog, props?: any) => void;
+  generateTempMessageId: () => string;
   sendTypingStatus: (dialog?: Dialogs.Dialog, isTyping?: boolean) => void;
   typingStatus: { [dialogId: string]: number[] };
   lastMessageSentTimeString: (dialog: Dialogs.Dialog) => string;
