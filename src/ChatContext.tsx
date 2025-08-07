@@ -373,7 +373,9 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     setSelectedDialog(undefined);
   };
 
-  const addTempMessage = (dialog?: Dialogs.Dialog, props: any = {}) => {
+  const generateTempMessageId = ConnectyCube.chat.helpers.getBsonObjectId;
+
+  const addTempMessage = (tempId?: string, dialog?: Dialogs.Dialog, props: any = {}) => {
     dialog ??= selectedDialog;
 
     if (!dialog) {
@@ -381,7 +383,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
 
     const ts = Math.round(new Date().getTime() / 1000);
-    const messageId = ConnectyCube.chat.helpers.getBsonObjectId();
+    const messageId = tempId || ConnectyCube.chat.helpers.getBsonObjectId();
     const createdTempMessage = {
       created_at: ts,
       updated_at: ts,
@@ -389,7 +391,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       message: props.body,
       sender_id: 0,
       ...props,
-      _id: messageId,
+      _id: tempId || messageId,
       chat_dialog_id: dialog._id,
       custom: true,
     };
@@ -399,40 +401,34 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       [dialog._id]: [...(prevMessages[dialog._id] || []), createdTempMessage],
     }));
 
-    return createdTempMessage;
+    return messageId;
   };
 
-  const updateTempMessage = (id: string, dialog?: Dialogs.Dialog, props: any = {}) => {
+  const updateTempMessage = (tempId: string, dialog?: Dialogs.Dialog, props: any = {}) => {
     dialog ??= selectedDialog;
 
     if (!dialog) {
       throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
     }
 
-    let updatedTempMessage = { _id: id, ...props };
-
     setMessages((prevMessages) => ({
       ...prevMessages,
-      [dialog._id]: prevMessages[dialog._id].map((msg) => {
-        if (msg._id === id) {
-          updatedTempMessage = {
-            ...msg,
-            ...props,
-            _id: msg._id,
-            created_at: msg.created_at,
-            updated_at: Math.round(new Date().getTime() / 1000),
-            date_sent: msg.date_sent,
-            chat_dialog_id: dialog._id,
-            message: props.body || msg.message,
-            custom: true,
-          };
-          return updatedTempMessage;
-        }
-        return msg;
-      }),
+      [dialog._id]: prevMessages[dialog._id].map((msg) =>
+        msg._id === tempId
+          ? {
+              ...msg,
+              ...props,
+              _id: msg._id,
+              created_at: msg.created_at,
+              updated_at: Math.round(new Date().getTime() / 1000),
+              date_sent: msg.date_sent,
+              chat_dialog_id: dialog._id,
+              message: props.body || props.message || msg.message,
+              custom: true,
+            }
+          : msg,
+      ),
     }));
-
-    return updatedTempMessage;
   };
 
   const sendMessage = (body: string, dialog?: Dialogs.Dialog) => {
@@ -969,6 +965,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         sendMessage,
         addTempMessage,
         updateTempMessage,
+        generateTempMessageId,
         dialogs,
         getDialogs,
         getNextDialogs,
