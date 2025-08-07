@@ -968,7 +968,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         sendSignal,
         sendMessage,
         addTempMessage,
-        updateTempMessage
+        updateTempMessage,
         dialogs,
         getDialogs,
         getNextDialogs,
