@@ -373,6 +373,64 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     setSelectedDialog(undefined);
   };
 
+  const generateTempMessageId = ConnectyCube.chat.helpers.getBsonObjectId;
+
+  const addTempMessage = (tempId?: string, dialog?: Dialogs.Dialog, props: any = {}) => {
+    dialog ??= selectedDialog;
+
+    if (!dialog) {
+      throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
+    }
+
+    const ts = Math.round(new Date().getTime() / 1000);
+    const messageId = tempId || ConnectyCube.chat.helpers.getBsonObjectId();
+    const createdTempMessage = {
+      created_at: ts,
+      updated_at: ts,
+      date_sent: ts,
+      message: props.body,
+      sender_id: 0,
+      ...props,
+      _id: tempId || messageId,
+      chat_dialog_id: dialog._id,
+      custom: true,
+    };
+
+    setMessages((prevMessages) => ({
+      ...prevMessages,
+      [dialog._id]: [...(prevMessages[dialog._id] || []), createdTempMessage],
+    }));
+
+    return messageId;
+  };
+
+  const updateTempMessage = (tempId: string, dialog?: Dialogs.Dialog, props: any = {}) => {
+    dialog ??= selectedDialog;
+
+    if (!dialog) {
+      throw "No dialog provided. You need to provide a dialog via function argument or select a dialog via 'selectDialog'.";
+    }
+
+    setMessages((prevMessages) => ({
+      ...prevMessages,
+      [dialog._id]: prevMessages[dialog._id].map((msg) =>
+        msg._id === tempId
+          ? {
+              ...msg,
+              ...props,
+              _id: msg._id,
+              created_at: msg.created_at,
+              updated_at: Math.round(new Date().getTime() / 1000),
+              date_sent: msg.date_sent,
+              chat_dialog_id: dialog._id,
+              message: props.body || props.message || msg.message,
+              custom: true,
+            }
+          : msg,
+      ),
+    }));
+  };
+
   const sendMessage = (body: string, dialog?: Dialogs.Dialog) => {
     dialog ??= selectedDialog;
 
@@ -905,6 +963,9 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
         messages,
         sendSignal,
         sendMessage,
+        addTempMessage,
+        updateTempMessage,
+        generateTempMessageId,
         dialogs,
         getDialogs,
         getNextDialogs,
