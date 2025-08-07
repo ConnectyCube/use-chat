@@ -1,0 +1,191 @@
+name: "Update Changelog on Release PR"
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  debug:
+    if: |
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '/changelog') &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug event
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Comment body: ${{ github.event.comment.body }}"
+          echo "Issue has PR: ${{ github.event.issue.pull_request != null }}"
+          echo "Author association: ${{ github.event.comment.author_association }}"
+          echo "Contains changelog: ${{ contains(github.event.comment.body, '/changelog') }}"
+          
+          # Get PR information via API
+          if [ "${{ github.event.issue.pull_request != null }}" = "true" ]; then
+            PR_NUMBER="${{ github.event.issue.number }}"
+            PR_INFO=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER)
+            echo "PR title: $(echo "$PR_INFO" | jq -r '.title')"
+            echo "PR base ref: $(echo "$PR_INFO" | jq -r '.base.ref')"
+            echo "PR head ref: $(echo "$PR_INFO" | jq -r '.head.ref')"
+            echo "PR state: $(echo "$PR_INFO" | jq -r '.state')"
+          else
+            echo "No PR associated with this issue"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+  update-changelog:
+    if: |
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '/changelog') &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      )
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get PR information
+        id: pr_info
+        run: |
+          PR_NUMBER="${{ github.event.issue.number }}"
+          PR_INFO=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER)
+          
+          # Check if PR exists and is open
+          PR_STATE=$(echo "$PR_INFO" | jq -r '.state')
+          if [ "$PR_STATE" != "open" ]; then
+            echo "❌ PR is not open (state: $PR_STATE)"
+            exit 1
+          fi
+          
+          echo "pr_title=$(echo "$PR_INFO" | jq -r '.title')" >> $GITHUB_OUTPUT
+          echo "pr_base_ref=$(echo "$PR_INFO" | jq -r '.base.ref')" >> $GITHUB_OUTPUT
+          echo "pr_head_ref=$(echo "$PR_INFO" | jq -r '.head.ref')" >> $GITHUB_OUTPUT
+          echo "pr_state=$PR_STATE" >> $GITHUB_OUTPUT
+          
+          echo "✅ PR found: $(echo "$PR_INFO" | jq -r '.title')"
+          echo "   Base ref: $(echo "$PR_INFO" | jq -r '.base.ref')"
+          echo "   Head ref: $(echo "$PR_INFO" | jq -r '.head.ref')"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.pr_info.outputs.pr_head_ref }}
+
+      - name: Debug current state
+        run: |
+          echo "Current branch: $(git branch --show-current)"
+          echo "Latest commits:"
+          git log --oneline -5
+          echo "Current working directory files:"
+          ls -la
+
+      - name: Extract version from PR comment
+        id: version
+        run: |
+            comment="${{ github.event.comment.body }}"
+            version=$(echo "$comment" | grep -oP '/changelog\s+\K[0-9]+\.[0-9]+\.[0-9]+')
+            echo "Comment: $comment"
+            echo "Extracted version: $version"
+            if [ -z "$version" ]; then
+              echo "❌ Version not found in PR title"
+              exit 1
+            fi
+            echo "version=$version" >> $GITHUB_OUTPUT
+        
+
+      - name: Setup git-chglog
+        run: |
+          CHGLOG_VERSION="0.15.4"
+          curl -sSL "https://github.com/git-chglog/git-chglog/releases/download/v${CHGLOG_VERSION}/git-chglog_${CHGLOG_VERSION}_linux_amd64.tar.gz" | tar -xz
+          chmod +x git-chglog
+
+      - name: Generate CHANGELOG.md
+        id: generate
+        run: |
+          ./git-chglog --next-tag ${{ steps.version.outputs.version }} -o CHANGELOG.md
+          if git diff --quiet CHANGELOG.md; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup
+        run: rm git-chglog
+        if: always()
+
+      - name: Create and push branch
+        if: steps.generate.outputs.changes == 'true'
+        id: create-branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          BRANCH_NAME="update-changelog-${{ github.run_id }}"
+          git checkout -b "$BRANCH_NAME"
+          git add CHANGELOG.md
+          git commit -m "update CHANGELOG.md"
+          git push origin "$BRANCH_NAME"
+          
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+
+      - name: Create Pull Request
+        if: steps.generate.outputs.changes == 'true'
+        id: create-pr
+        run: |
+          BRANCH_NAME="${{ steps.create-branch.outputs.branch_name }}"
+          
+          gh pr create \
+            --title "📝 Update Changelog" \
+            --body "This PR updates the CHANGELOG.md.
+          - Generated using git-chglog
+          - Triggered by: PR comment
+          - Auto-merge enabled" \
+            --base "${{ steps.pr_info.outputs.pr_head_ref }}" \
+            --head "$BRANCH_NAME" \
+            --label "documentation,automated-pr"
+          
+          PR_NUMBER=$(gh pr list --head "$BRANCH_NAME" --json number --jq '.[0].number')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+
+      - name: Enable Auto-merge
+        if: steps.generate.outputs.changes == 'true'
+        run: |
+          gh pr merge --auto --merge "${{ steps.create-pr.outputs.pr_number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+
+      - name: Delete changelog branch after merge
+        if: steps.generate.outputs.changes == 'true'
+        run: |
+            branch="update-changelog-${{ github.run_id }}"
+  
+            sleep 5
+  
+            pr_state=$(gh pr view "$branch" --json state --jq '.state')
+
+            if [ "$pr_state" = "MERGED" ]; then
+              echo "✅ PR merged, deleting branch '$branch'"
+              git push origin --delete "$branch"
+            else
+              echo "⚠️ PR state is '$pr_state'. Skipping branch deletion."
+            fi
+        env:
+            GH_TOKEN: ${{ secrets.GH_PAT }}
