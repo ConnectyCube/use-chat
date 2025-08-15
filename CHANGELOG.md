@@ -8,11 +8,11 @@
 
 ### Code Refactoring
 
-- the method sendMessage can add extension object to a sending message as third parameter. `sendMessage: (body: string, dialog?: Dialogs.Dialog, extension?: { [key: string]: any }) => void;`
+- the method sendMessage can add an extension object to a sending message as third parameter. `sendMessage: (body: string, dialog?: Dialogs.Dialog, extension?: { [key: string]: any }) => void;`
 
 ### Features
 
-- new method `generateTempMessageId` to create custom/temporary identifier for message
+- new method `generateTempMessageId` to create a custom/temporary identifier for a message
 - add `addTempMessage` and `updateTempMessage` methods to create and update a temporary custom message in chat messages
 
 <a name="0.26.2"></a>
