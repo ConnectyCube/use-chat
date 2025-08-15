@@ -6,6 +6,10 @@
 
 - added new commands `npm run version:major`, `npm run version:minor`, and `npm run version:patch` to bump version in the `package.json`
 
+### Code Refactoring
+
+- the method sendMessage can add extension object to a sending message as third parameter. `sendMessage: (body: string, dialog?: Dialogs.Dialog, extension?: { [key: string]: any }) => void;`
+
 ### Features
 
 - new method `generateTempMessageId` to create custom/temporary identifier for message
