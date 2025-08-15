@@ -8,7 +8,7 @@
 
 ### Code Refactoring
 
-- the method sendMessage can add an extension object to a sending message as third parameter. `sendMessage: (body: string, dialog?: Dialogs.Dialog, extension?: { [key: string]: any }) => void;`
+- the method sendMessage can add an extension object to a sending message as the third parameter. `sendMessage: (body: string, dialog?: Dialogs.Dialog, extension?: { [key: string]: any }) => void;`
 
 ### Features
 
