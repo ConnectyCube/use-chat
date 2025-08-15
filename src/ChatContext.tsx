@@ -431,7 +431,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }));
   };
 
-  const sendMessage = (body: string, dialog?: Dialogs.Dialog) => {
+  const sendMessage = (body: string, dialog?: Dialogs.Dialog, extension: { [key: string]: any } = {}) => {
     dialog ??= selectedDialog;
 
     if (!dialog) {
@@ -439,7 +439,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     }
 
     const opponentId = getDialogOpponentId(dialog);
-    const messageId = _sendMessage(body, null, dialog, opponentId);
+    const messageId = _sendMessage(body, null, dialog, opponentId, extension);
 
     _addMessageToStore(messageId, body, dialog._id, currentUserId as number, opponentId);
   };
@@ -495,6 +495,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     attachments: Messages.Attachment[] | null,
     dialog: Dialogs.Dialog,
     opponentId?: number,
+    extension?: { [key: string]: any },
   ): string => {
     const messageParams: Chat.MessageParams = {
       type: dialog.type === DialogType.PRIVATE ? ChatType.CHAT : ChatType.GROUPCHAT,
@@ -502,6 +503,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       extension: {
         save_to_history: 1,
         dialog_id: dialog._id,
+        ...extension,
       },
     };
 
@@ -525,8 +527,10 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     recipientId?: number,
     attachments?: Messages.Attachment[],
     isLoading?: boolean,
+    extension?: { [key: string]: any },
   ) => {
     const ts = Math.round(new Date().getTime() / 1000);
+    const ext = extension || {};
 
     setDialogs((prevDialogs) =>
       prevDialogs
@@ -552,6 +556,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
       [dialogId]: [
         ...(prevMessages[dialogId] || []),
         {
+          ...ext,
           _id: messageId,
           created_at: ts,
           updated_at: ts,
