@@ -1,14 +1,18 @@
-<a name="0.27.0"></a>
+<a name="v0.27.0"></a>
 
-## 0.27.0
+## v0.27.0
 
 ### Chores
 
-- new commands `npm run version:major`, `npm run version:minor`, and `npm run version:patch` to bump version in the `package.json`
+- added new commands `npm run version:major`, `npm run version:minor`, and `npm run version:patch` to bump version in the `package.json`
+
+### Code Refactoring
+
+- the method sendMessage can add an extension object to a sending message as third parameter. `sendMessage: (body: string, dialog?: Dialogs.Dialog, extension?: { [key: string]: any }) => void;`
 
 ### Features
 
-- new method `generateTempMessageId` to create custom/temporary identifier for message
+- new method `generateTempMessageId` to create a custom/temporary identifier for a message
 - add `addTempMessage` and `updateTempMessage` methods to create and update a temporary custom message in chat messages
 
 <a name="0.26.2"></a>

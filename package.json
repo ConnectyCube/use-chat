@@ -33,10 +33,11 @@
   ],
   "scripts": {
     "build": "rollup -c",
-    "version": "node bump-version.cjs",
+    "version": "node ./scripts/bump-version.cjs",
     "version:patch": "npm run version patch",
     "version:minor": "npm run version minor",
     "version:major": "npm run version major",
+    "changelog": "node ./scripts/changelog.cjs",
     "test": "vitest",
     "test:ci": "vitest run",
     "coverage": "vitest run --coverage"
