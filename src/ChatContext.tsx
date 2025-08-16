@@ -441,7 +441,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
     const opponentId = getDialogOpponentId(dialog);
     const messageId = _sendMessage(body, null, dialog, opponentId, extension);
 
-    _addMessageToStore(messageId, body, dialog._id, currentUserId as number, opponentId);
+    _addMessageToStore(messageId, body, dialog._id, currentUserId as number, opponentId, undefined, false, extension);
   };
 
   const sendMessageWithAttachment = async (files: File[], dialog?: Dialogs.Dialog): Promise<void> => {
@@ -782,7 +782,7 @@ export const ChatProvider = ({ children }: ChatProviderType): React.ReactElement
           }))
         : undefined;
 
-    _addMessageToStore(messageId, body, dialogId, userId, opponentId, attachments);
+    _addMessageToStore(messageId, body, dialogId, userId, opponentId, attachments, false, message.extension);
     _clearTypingStatus(dialogId, userId);
 
     setDialogs((prevDialogs) =>
