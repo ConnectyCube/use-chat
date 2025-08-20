@@ -39,9 +39,12 @@ export interface ChatContextType extends BlockListHook, UsersHookExports, Networ
   removeUsersFromGroupChat: (usersIds: number[]) => Promise<void>;
   leaveGroupChat: () => Promise<void>;
   sendSignal: (userIdOrIds: number | number[], signal: string, params?: any) => void;
-  sendMessage: (body: string, dialog?: Dialogs.Dialog) => void;
+  sendMessage: (body: string, dialog?: Dialogs.Dialog, extension?: { [key: string]: any }) => void;
   sendMessageWithAttachment: (files: File[], dialog?: Dialogs.Dialog) => Promise<void>;
   readMessage: (messageId: string, userId: number, dialogId: string) => void;
+  addTempMessage: (tempId?: string, dialog?: Dialogs.Dialog, props?: any) => string;
+  updateTempMessage: (tempId: string, dialog?: Dialogs.Dialog, props?: any) => void;
+  generateTempMessageId: () => string;
   sendTypingStatus: (dialog?: Dialogs.Dialog, isTyping?: boolean) => void;
   typingStatus: { [dialogId: string]: number[] };
   lastMessageSentTimeString: (dialog: Dialogs.Dialog) => string;
